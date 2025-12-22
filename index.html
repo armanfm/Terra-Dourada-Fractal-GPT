@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terra Dourada - Interface</title>
+  <style>
+    body{
+      background-color:#1e1e1e;color:#d4d4d4;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+      display:flex;flex-direction:column;height:100vh;margin:0;padding:20px;box-sizing:border-box;
+    }
+    h1{margin-top:0;text-align:center;color:#4ec9b0;}
+
+    #chat{
+      flex:1;background-color:#252526;border:1px solid #3e3e42;border-radius:8px;
+      padding:15px;overflow-y:auto;margin-bottom:15px;display:flex;flex-direction:column;gap:10px;
+    }
+
+    .msg{max-width:90%;padding:10px 15px;border-radius:12px;line-height:1.4;word-wrap:break-word;}
+    .user{align-self:flex-end;background-color:#007acc;color:#fff;border-bottom-right-radius:2px;}
+    .bot{align-self:flex-start;background-color:#3e3e42;color:#e0e0e0;border-bottom-left-radius:2px;white-space:pre-wrap;}
+
+    .controls{display:flex;gap:10px;flex-wrap:wrap;}
+    input[type="text"]{
+      flex:1;min-width:240px;padding:12px;border-radius:6px;border:1px solid #3e3e42;
+      background-color:#333;color:#fff;outline:none;
+    }
+    input[type="text"]:focus{border-color:#007acc;}
+
+    button{
+      padding:10px 16px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;transition:background .2s, opacity .2s;
+    }
+
+    #send{background-color:#4ec9b0;color:#1e1e1e;}
+    #send:hover{background-color:#3da892;}
+
+    /* Botões secundários (Treino) - Menos destaque */
+    #trainBtn{background-color:#3c3c3c;color:#ccc;border:1px solid #555;}
+    #trainBtn:hover{background-color:#4c4c4c;}
+
+    #mindBtn{background-color:#3c3c3c;color:#ccc;border:1px solid #555;}
+    #mindBtn:hover{background-color:#4c4c4c;}
+
+    .ok{background-color:#2ea043 !important;color:#fff !important;border:none !important;}
+    
+    /* Classe disabled visual apenas, mas não bloqueia logica se não quisermos */
+    .disabled{opacity:.55;cursor:not-allowed;}
+
+    #txtFile, #mindFile {display:none;}
+  </style>
+</head>
+<body>
+  <h1>Terra Dourada Interface</h1>
+
+  <div id="chat"></div>
+
+  <div class="controls">
+    <input type="text" id="input" placeholder="Converse com a IA Soberana..." autocomplete="off" />
+    <button id="send">Enviar</button>
+
+    <button id="trainBtn" title="Re-treinar com novo TXT">Treinar</button>
+    <input type="file" id="txtFile" accept=".txt" />
+
+    <button id="mindBtn" title="Carregar binário manualmente">Carregar mind.bin</button>
+    <input type="file" id="mindFile" accept=".bin" />
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("input");
+    const send = document.getElementById("send");
+
+    const trainBtn = document.getElementById("trainBtn");
+    const txtFile = document.getElementById("txtFile");
+
+    const mindBtn = document.getElementById("mindBtn");
+    const mindFile = document.getElementById("mindFile");
+
+    // Endpoints do Backend Go
+    const TRAIN_ENDPOINT = "/train";
+    const LOAD_MIND_ENDPOINT = "/load_mind";
+    const ASK_ENDPOINT = "/ask";
+
+    // --- MUDANÇA 1: Assume que o backend já tem o cérebro ---
+    let mindLoaded = true; 
+
+    function addMessage(text, cls) {
+      const div = document.createElement("div");
+      div.className = "msg " + cls;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // ----------- ASK (/ask) - SEM BLOQUEIOS -----------
+    async function doAsk(questionText) {
+      // --- MUDANÇA 2: Removida a verificação if(!mindLoaded) ---
+      // O HTML agora confia que o Backend vai se virar.
+
+      const loading = addMessage("⏳ Pensando...", "bot");
+
+      try {
+        const res = await fetch(ASK_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: questionText })
+        });
+
+        const raw = await res.text();
+        loading.remove();
+
+        if (!res.ok) {
+          addMessage("❌ O Backend Go retornou erro (" + res.status + ")\nVerifique se a rota /ask existe no main.go", "bot");
+          return;
+        }
+
+        let json;
+        try { 
+            json = JSON.parse(raw); 
+        } catch { 
+            addMessage("❌ Resposta inválida (não é JSON):\n" + raw, "bot"); 
+            return; 
+        }
+
+        // Exibe a resposta que veio do Rust/Go
+        addMessage(json.answer || "Sem resposta no JSON.", "bot");
+
+      } catch (err) {
+        loading.remove();
+        addMessage("❌ Erro de conexão com o servidor local.\n" + String(err), "bot");
+      }
+    }
+
+    send.onclick = async () => {
+      const text = input.value.trim();
+      if (!text) return;
+
+      addMessage(text, "user");
+      input.value = "";
+      await doAsk(text);
+    };
+
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send.click();
+      }
+    });
+
+    // ----------- TRAIN (Mantido caso queira treinar novos dados) -----------
+    trainBtn.onclick = () => txtFile.click();
+
+    txtFile.onchange = () => {
+      const file = txtFile.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        addMessage(`📄 Treinando com: ${file.name}...`, "bot");
+        try {
+          const res = await fetch(TRAIN_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: reader.result
+          });
+
+          if (!res.ok) throw new Error(await res.text());
+
+          // Se o treino der certo e retornar ZIP
+          const blob = await res.blob();
+          downloadBlob(blob, "terra_dourada_mind.zip");
+          addMessage("🟢 Treino concluído! Backup baixado.", "bot");
+          
+        } catch (err) {
+          addMessage("❌ Erro no treino: " + String(err), "bot");
+        } finally {
+          txtFile.value = "";
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    // ----------- LOAD MIND (Mantido mas opcional) -----------
+    mindBtn.onclick = () => mindFile.click();
+
+    mindFile.onchange = async () => {
+      const file = mindFile.files[0];
+      if (!file) return;
+
+      addMessage("🧠 Atualizando cérebro manualmente...", "bot");
+      const fd = new FormData();
+      fd.append("mind", file);
+
+      try {
+        const res = await fetch(LOAD_MIND_ENDPOINT, { method: "POST", body: fd });
+        if (!res.ok) throw new Error(await res.text());
+        
+        addMessage("🟢 Cérebro atualizado via upload!", "bot");
+        mindBtn.classList.add("ok");
+      } catch (err) {
+        addMessage("❌ Erro ao carregar: " + String(err), "bot");
+      } finally {
+        mindFile.value = "";
+      }
+    };
+
+    // --- INICIALIZAÇÃO ---
+    // Mensagem de boas vindas direta
+    addMessage(
+      "🟢 Sistema Conectado.\nO Chat está liberado. O Backend (Go) deve gerenciar o mind.bin.",
+      "bot"
+    );
+  </script>
+</body>
+</html>

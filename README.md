@@ -129,3 +129,16 @@ Thresholds, heuristics, and APIs may evolve, but the core principles of determin
 ## License
 
 MIT
+
+
+
+## 📊 Results and Technical Report
+
+See the [`report.txt`](./report.txt) file for a detailed technical report covering:
+- evaluation criteria and metrics
+- qualitative analysis of system behavior
+- preliminary results
+- architectural insights and design considerations
+
+This report complements the README with deeper technical details that may be of interest to developers and evaluators.
+

@@ -2,9 +2,6 @@ use std::collections::{HashMap, HashSet};
 use sha2::{Sha256, Digest};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
-// ======================================================
-// CONFIGURAÇÃO GLOBAL
-// ======================================================
 
 const LIMIAR_SIMILARIDADE: f64 = 0.75;
 const LIMIAR_SCORE_FINAL: f64 = 0.40;
@@ -29,24 +26,19 @@ const EPS_SCORE: f64 = 1e-12;
 // Anti-redundância (Jaccard em tokens informacionais)
 const LIMIAR_REDUNDANCIA_TOPK: f64 = 0.55;
 
-// ✅ PERFORMANCE: pré-filtros baratos (barato → caro)
-const LIMIAR_JACCARD_PREFILTRO: f64 = 0.12;      // mata lixo cedo (se query tem tokens info)
-const LIMIAR_BYTES_PREFILTRO: f64 = 0.55;        // bytes-bit rápido antes de SHA/Base64
-const LIMIAR_JACCARD_PARA_TOKENS: f64 = 0.14;    // só calcula tok-score caro se overlap mínimo
-const TOPK_BRUTO_MULT: usize = 6;                // coleta k*mult pra não “morrer” por redundância
-const TOPK_BRUTO_MAX: usize = 64;                // limite duro por desempenho
 
-// ======================================================
-// CODIFICAÇÃO BASE
-// ======================================================
+const LIMIAR_JACCARD_PREFILTRO: f64 = 0.12;      
+const LIMIAR_BYTES_PREFILTRO: f64 = 0.55;       
+const LIMIAR_JACCARD_PARA_TOKENS: f64 = 0.14;    
+const TOPK_BRUTO_MULT: usize = 6;                
+const TOPK_BRUTO_MAX: usize = 64;                
+
 
 pub fn bytes_from_text(texto: &str) -> Vec<u8> {
     texto.as_bytes().to_vec()
 }
 
-// ======================================================
-// ENTRADA SEMÂNTICA
-// ======================================================
+
 
 #[derive(Debug, Clone)]
 pub struct SemanticEntry {
@@ -56,9 +48,7 @@ pub struct SemanticEntry {
     pub hash_fx: u64,
 }
 
-// ======================================================
-// MEMÓRIA
-// ======================================================
+
 
 #[derive(Debug)]
 pub struct SemanticMemory {
@@ -77,9 +67,7 @@ impl SemanticMemory {
     }
 }
 
-// ======================================================
-// HASH SOBERANO (FNV-1A)
-// ======================================================
+
 
 pub fn soberano_hash(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf29ce484222325;
@@ -90,9 +78,6 @@ pub fn soberano_hash(bytes: &[u8]) -> u64 {
     h
 }
 
-// ======================================================
-// APRENDIZADO
-// ======================================================
 
 pub fn learn(memory: &mut SemanticMemory, texto: &str) {
     let bytes = bytes_from_text(texto);
@@ -114,9 +99,7 @@ pub fn learn(memory: &mut SemanticMemory, texto: &str) {
     memory.proximo_id += 1;
 }
 
-// ======================================================
-// NORMALIZAÇÃO (FOCO / ÂNCORA)
-// ======================================================
+
 
 fn fold_pt_char(c: char) -> char {
     match c {
@@ -192,9 +175,7 @@ fn extrair_foco(query: &str) -> (String, Vec<String>, String) {
     (foco, anchors, qn)
 }
 
-// ======================================================
-// NÚCLEO DE SIMILARIDADE (BITS)
-// ======================================================
+
 
 fn string_para_bits(texto: &str, max_bits: usize) -> Vec<u8> {
     let mut bits = Vec::new();
@@ -231,9 +212,7 @@ fn similaridade_bits(a: &[u8], b: &[u8]) -> f64 {
     iguais as f64 / k as f64
 }
 
-// ======================================================
-// SIMILARIDADES INDIVIDUAIS
-// ======================================================
+
 
 fn similaridade_bytes(a: &str, b: &str) -> f64 {
     let ba = string_para_bits(a, 128);
@@ -261,9 +240,7 @@ fn similaridade_base64(a: &str, b: &str) -> f64 {
     similaridade_bits(&ba, &bb)
 }
 
-// ======================================================
-// SIMILARIDADE FINAL ROBUSTA
-// ======================================================
+
 
 fn similaridade_robusta(a: &str, b: &str) -> f64 {
     let s_bytes = similaridade_bytes(a, b);
@@ -277,9 +254,7 @@ fn similaridade_robusta(a: &str, b: &str) -> f64 {
     }
 }
 
-// ======================================================
-// SIMILARIDADE ESTRUTURAL MINUCIOSA (SHA/BYTES/B64)
-// ======================================================
+
 
 fn similaridade_estrutural_minuciosa(a: &str, b: &str) -> (f64, f64, f64, f64) {
     let sb = similaridade_bits(
@@ -305,9 +280,7 @@ fn similaridade_estrutural_minuciosa(a: &str, b: &str) -> (f64, f64, f64, f64) {
     (sb, ss, s64, combinada)
 }
 
-// ======================================================
-// PESO SEMÂNTICO DO TOKEN
-// ======================================================
+
 
 fn peso_token(token: &str) -> f64 {
     let t = token.to_lowercase();
@@ -366,9 +339,7 @@ fn peso_token(token: &str) -> f64 {
     }
 }
 
-// ======================================================
-// TOKEN SCORE (caro) — usa similaridade_robusta por token
-// ======================================================
+
 
 fn xor_frase_score(a: &str, b: &str) -> f64 {
     let ta: Vec<&str> = a.split_whitespace().collect();
@@ -399,9 +370,7 @@ fn xor_frase_score(a: &str, b: &str) -> f64 {
     if peso_total == 0.0 { 0.0 } else { soma / peso_total }
 }
 
-// ======================================================
-// PENALIZAÇÃO < limiar
-// ======================================================
+
 
 fn penalidade_baixa_similaridade(sim: f64) -> f64 {
     if sim >= LIMIAR_SIMILARIDADE {
@@ -412,9 +381,7 @@ fn penalidade_baixa_similaridade(sim: f64) -> f64 {
     }
 }
 
-// ======================================================
-// PRIORIZAÇÃO POR TIPO DE FRASE
-// ======================================================
+
 
 fn bonus_tipo_frase(texto: &str) -> f64 {
     let t = texto.to_lowercase();
@@ -428,9 +395,6 @@ fn bonus_tipo_frase(texto: &str) -> f64 {
     }
 }
 
-// ======================================================
-// TOP-K HELPERS (ordem determinística)
-// ======================================================
 
 fn melhor_que(a_score: f64, a_id: u64, b_score: f64, b_id: u64) -> bool {
     if a_score > b_score + EPS_SCORE {
@@ -467,9 +431,6 @@ fn inserir_top_k<'a>(
     }
 }
 
-// ======================================================
-// TOKENS INFORMACIONAIS (set) + JACCARD (rápido)
-// ======================================================
 
 fn tokens_informacionais_set(texto: &str) -> HashSet<String> {
     let n = norm_text(texto);
@@ -502,9 +463,7 @@ fn jaccard_set(a: &HashSet<String>, b: &HashSet<String>) -> f64 {
     if uni == 0 { 0.0 } else { inter as f64 / uni as f64 }
 }
 
-// ======================================================
-// ANTI-REDUNDÂNCIA (JACCARD NO TOP-K)
-// ======================================================
+
 
 fn eh_redundante_set(te: &HashSet<String>, escolhidos: &[(u64, HashSet<String>)]) -> bool {
     for (_id, t2) in escolhidos.iter() {
@@ -516,9 +475,7 @@ fn eh_redundante_set(te: &HashSet<String>, escolhidos: &[(u64, HashSet<String>)]
     false
 }
 
-// ======================================================
-// RECALL TOP-K (rápido → caro) + anti-redundância
-// ======================================================
+
 
 pub fn recall_top_k<'a>(
     memory: &'a SemanticMemory,
@@ -659,9 +616,7 @@ pub fn recall_top_k<'a>(
     escolhidos
 }
 
-// ======================================================
-// RECALL (compat): melhor 1
-// ======================================================
+
 
 pub fn recall<'a>(
     memory: &'a SemanticMemory,
@@ -670,9 +625,7 @@ pub fn recall<'a>(
     recall_top_k(memory, query, 1).into_iter().next()
 }
 
-// ======================================================
-// RESPOSTA FINAL (TOP-K sem redundância)
-// ======================================================
+
 
 pub fn respond(memory: &SemanticMemory, input: &str) -> String {
     let top = recall_top_k(memory, input, TOP_K_PADRAO);
@@ -690,3 +643,4 @@ pub fn respond(memory: &SemanticMemory, input: &str) -> String {
     }
     out
 }
+

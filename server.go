@@ -174,7 +174,7 @@ func promptSemRecall(pergunta string) string {
 func chamarGemini(ctx context.Context, model string, prompt string, temperature float64, maxOut int) (string, int, error) {
 	// 🔴🔴🔴 HARDCODE CRÍTICO PARA O HACKATHON 🔴🔴🔴
 	// Isso garante que funcione independente do Windows/Env
-	apiKey := "AIzaSyDyVsXc00X2ZgBST1TC85Kgjr35qr9Q0Gs"
+	apiKey := "AI..."
 	
 	// Limpeza de segurança (caso haja espaços invisíveis)
 	apiKey = cleanAPIKey(apiKey)
@@ -960,4 +960,5 @@ func main() {
 	}
 
 	log.Fatal(srv.ListenAndServe())
+
 }

@@ -606,7 +606,7 @@ func main() {
 
 	model := os.Getenv("GEMINI_MODEL")
 	if model == "" {
-		model = "gemini-2.0-flash"
+		model = "gemini-3.0-flash"
 	}
 	model = normalizeModelName(model)
 
@@ -962,5 +962,6 @@ func main() {
 	log.Fatal(srv.ListenAndServe())
 
 }
+
 
 

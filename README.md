@@ -142,3 +142,32 @@ See the [`report.txt`](./report.txt) file for a detailed technical report coveri
 
 This report complements the README with deeper technical details that may be of interest to developers and evaluators.
 
+
+
+---
+
+## 🧠 Sovereign Training (mind.bin)
+
+Terra Dourada provides a **public deterministic training service** responsible for generating auditable `mind.bin` files from raw text.
+
+This training is **not a prompt** and **does not rely on generative models** to create memory.  
+It produces a sovereign semantic base that can be loaded locally or accessed via API.
+
+### 🔗 Public training endpoint
+https://terra-dourada-gpt-morning-fog-9517.fly.dev/
+
+### 📦 What this service does
+- Accepts raw text input
+- Executes the deterministic training pipeline (FXL Turbo)
+- Generates a `mind.bin` file
+- Returns a `.zip` archive containing:
+  - `mind.bin`
+  - `report.txt` (training log)
+
+### ⚠️ Important notes
+- The service is **stateless** (each training job is isolated)
+- The generated `mind.bin` belongs exclusively to the user who created it
+- The training endpoint is exposed for **technical demonstration and validation**
+- The internal training logic is part of the Terra Dourada core system
+
+

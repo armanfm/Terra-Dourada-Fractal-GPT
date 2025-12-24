@@ -1,74 +1,67 @@
 import os
 import subprocess
 import google.generativeai as genai
+from google.generativeai.types import FunctionDeclaration, Tool
 
-API_ENV = "GOOGLE_API_KEY"   # ou "GEMINI_API_KEY" se você preferir padronizar
-BIN_ENV = "TD_RUST_BIN"      # caminho pro executável Rust que responde consultas
+# 🔑 CONFIGURAÇÃO
+# Coloque sua API Key aqui ou em variável de ambiente
+os.environ["GOOGLE_API_KEY"] = ""
+genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
-def consultar_memoria_soberana(pergunta: str) -> str:
-    bin_path = os.getenv(BIN_ENV)
-    if not bin_path:
-        return f"Erro: defina {BIN_ENV} com o caminho do executável Rust."
-
+# 👇 A MÁGICA: Função que chama seu RUST
+def consultar_memoria_soberana(pergunta: str):
+    """
+    Consulta o banco de dados determinístico (Rust) para buscar fatos soberanos.
+    Use isso sempre que o usuário perguntar sobre Terra Dourada, Robô Soberano, economia ou regras do sistema.
+    """
     try:
-        r = subprocess.run(
-            [bin_path, pergunta],
-            capture_output=True,
-            text=True,
-            timeout=8
+        # Chama o seu executável Rust compilado
+        # Ajuste o caminho './target/release/chat' para onde está seu binário
+        # O binário deve aceitar a pergunta como argumento de linha de comando
+        resultado = subprocess.run(
+            ['./target/release/meu_projeto_rust', pergunta], 
+            capture_output=True, 
+            text=True, 
+            timeout=5
         )
-
-        out = (r.stdout or "").strip()
-        if not out:
-            err = (r.stderr or "").strip()
-            return f"RESULTADO RUST: vazio. stderr={err}" if err else "RESULTADO RUST: vazio."
-
-        if "não sei" in out.lower() or "nao sei" in out.lower():
+        
+        saida_rust = resultado.stdout.strip()
+        
+        if not saida_rust or "não sei" in saida_rust.lower():
             return "RESULTADO RUST: Nenhuma informação encontrada na memória soberana."
-
-        return f"RESULTADO RUST (FATOS SOBERANOS): {out}"
-
-    except subprocess.TimeoutExpired:
-        return "Erro: timeout consultando a memória soberana (Rust demorou demais)."
+            
+        return f"RESULTADO RUST (FATOS SOBERANOS): {saida_rust}"
+        
     except Exception as e:
-        return f"Erro ao consultar memória soberana: {e}"
+        return f"Erro ao consultar memória soberana: {str(e)}"
 
-def main():
-    api_key = os.getenv(API_ENV)
-    if not api_key:
-        raise SystemExit(f"ERRO: defina {API_ENV} no ambiente.")
+# 🛠️ Configura a ferramenta para o Gemini
+ferramentas = [consultar_memoria_soberana]
 
-    genai.configure(api_key=api_key)
+model = genai.GenerativeModel(
+    model_name='gemini-1.5-flash', # Ou 'gemini-1.5-pro'
+    tools=ferramentas,
+    system_instruction="""
+    Você é o 'Interface Gemini', um assistente que traduz a vontade humana para o sistema Terra Dourada.
+    
+    REGRA DE OURO (ANTI-ALUCINAÇÃO):
+    1. Você NÃO possui conhecimento prévio sobre 'Terra Dourada' ou 'Robô Soberano'.
+    2. Para QUALQUER pergunta sobre esses temas, você OBRIGATORIAMENTE deve usar a ferramenta 'consultar_memoria_soberana'.
+    3. Responda APENAS com base nos dados retornados pela ferramenta.
+    4. Se a ferramenta retornar que não encontrou nada, diga ao usuário que o sistema não possui essa informação. JAMAIS invente.
+    """
+)
 
-    model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        tools=[consultar_memoria_soberana],
-        system_instruction=(
-            "Você é o 'Interface Gemini', tradutor da vontade humana para o sistema Terra Dourada.\n"
-            "REGRA DE OURO (ANTI-ALUCINAÇÃO):\n"
-            "1) Você NÃO possui conhecimento prévio sobre Terra Dourada.\n"
-            "2) Para qualquer pergunta sobre Terra Dourada / Robô Soberano / regras do sistema, "
-            "você DEVE usar consultar_memoria_soberana.\n"
-            "3) Responda apenas com base no retorno.\n"
-            "4) Se não houver dados, diga que não há informação. Não invente.\n"
-        ),
-    )
+# 💬 Loop de Chat (Chat Mode)
+chat = model.start_chat(enable_automatic_function_calling=True)
 
-    chat = model.start_chat(enable_automatic_function_calling=True)
+print("🟢 Sistema Integrado Iniciado: Gemini + Rust Core")
+print("------------------------------------------------")
 
-    print("🟢 Sistema Integrado: Gemini + Rust Core")
-    print(f"🔧 BIN: {os.getenv(BIN_ENV, '(não definido)')}")
-    print("Digite 'exit' para sair.\n")
-
-    while True:
-        user_input = input("Você: ").strip()
-        if user_input.lower() in ("exit", "sair"):
-            break
-        if not user_input:
-            continue
-
-        resp = chat.send_message(user_input)
-        print(f"🤖 Gemini (Soberano): {resp.text}\n")
-
-if __name__ == "__main__":
-    main()
+while True:
+    user_input = input("Você: ")
+    if user_input.lower() in ['sair', 'exit']:
+        break
+        
+    response = chat.send_message(user_input)
+    print(f"🤖 Gemini (Soberano): {response.text}")

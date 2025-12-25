@@ -154,7 +154,7 @@ This training is **not a prompt** and **does not rely on generative models** to 
 It produces a sovereign semantic base that can be loaded locally or accessed via API.
 
 ### 🔗 Public training endpoint
-https://terra-dourada-gpt-morning-fog-9517.fly.dev/
+[https://terra-dourada-gpt-morning-fog-9517.fly.dev/](https://terra-dourada-gpt-little-waterfall-8532.fly.dev/)
 
 ### 📦 What this service does
 - Accepts raw text input

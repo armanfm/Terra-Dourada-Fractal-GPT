@@ -38,7 +38,7 @@ This token usage remains stable regardless of the size of the semantic memory (`
 The dialogue examples shown in this project were generated using this architecture, where deterministic recall provides the content and Gemini 3 is used solely for linguistic rendering.
 
 
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/62acc313-e9da-4e12-acbd-804f8c8da100" />
+
 
 
 

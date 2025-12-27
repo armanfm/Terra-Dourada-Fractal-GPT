@@ -1,4 +1,4 @@
-### 🎄 Training Update — 50 KB Limit
+### 🎄 Training Update — 250 KB Limit
 
 I’ve just updated the **Terra Dourada training system**.
 

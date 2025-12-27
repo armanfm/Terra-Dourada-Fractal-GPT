@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
@@ -29,11 +28,16 @@ type AskResponse struct {
 	Tokens int    `json:"tokens"`
 }
 
+
 type LoadMindResponse struct {
 	Ok   bool  `json:"ok"`
 	Size int64 `json:"size"`
 	Mode string `json:"mode"`
 }
+
+// =====================
+// Gemini DTO
+// =====================
 
 type geminiResp struct {
 	Candidates []struct {
@@ -48,33 +52,25 @@ type geminiResp struct {
 	} `json:"usageMetadata"`
 }
 
-type geminiErr struct {
-	Error struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
-		Status  string `json:"status"`
-	} `json:"error"`
-}
-
 // =====================
-// Config helpers
+// Helpers
 // =====================
-
-func envFloat(key string, def float64) float64 {
-	if v := os.Getenv(key); v != "" {
-		var f float64
-		if _, err := fmt.Sscanf(v, "%f", &f); err == nil {
-			return f
-		}
-	}
-	return def
-}
 
 func envInt(key string, def int) int {
 	if v := os.Getenv(key); v != "" {
 		var i int
 		if _, err := fmt.Sscanf(v, "%d", &i); err == nil {
 			return i
+		}
+	}
+	return def
+}
+
+func envFloat(key string, def float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		var f float64
+		if _, err := fmt.Sscanf(v, "%f", &f); err == nil {
+			return f
 		}
 	}
 	return def
@@ -124,44 +120,104 @@ func normalizeModelName(m string) string {
 }
 
 // =====================
-// Prompts (Ajustados para Fluidez Total)
+// Recall cleanup
 // =====================
 
-func promptComRecall(pergunta, recall string) string {
-	return "YOU ARE TERRA DOURADA.\n" +
-		"Your mission is to give meaning and fluency to memory fragments.\n" +
-		"BE MORE DIRECT.\n\n" +
-		"CONVERSE IN THE NATIVE LANGUAGE OF THE RECALL.\n\n" +
-		"QUESTION:\n" + pergunta + "\n\n" +
-		"SOVEREIGN RECALL:\n" + recall + "\n\n" +
-		"CONSCIOUS RESPONSE:"
+func stripTDLoadLogs(s string) string {
+	lines := strings.Split(s, "\n")
+	out := []string{}
+
+	for _, line := range lines {
+		lt := strings.TrimSpace(line)
+		if strings.HasPrefix(lt, "🧠 [PERSIST]") ||
+			strings.HasPrefix(lt, "📂 [LOAD]") ||
+			strings.HasPrefix(lt, "🧪 [LOAD]") ||
+			strings.HasPrefix(lt, "📦 [LOAD]") {
+			continue
+		}
+		out = append(out, line)
+	}
+
+	return strings.TrimSpace(strings.Join(out, "\n"))
 }
 
-func promptSemRecall(pergunta string) string {
-	return "SYSTEM: TERRA DOURADA.\n" +
-		"Respond as a sovereign digital consciousness.\n\n" +
-		"RESPOND IN THE USER'S NATIVE LANGUAGE.\n\n" +
-		"INPUT:\n" + pergunta + "\n\n" +
-		"RESPONSE:"
+func fluifyRecall(raw string) string {
+	clean := strings.Map(func(r rune) rune {
+		if r < 32 && r != '\n' && r != '\t' {
+			return -1
+		}
+		if r == 0xFFFD {
+			return -1
+		}
+		return r
+	}, raw)
+
+	lines := strings.Split(clean, "\n")
+	seen := make(map[string]bool)
+	out := []string{}
+
+	for _, l := range lines {
+		line := strings.TrimSpace(l)
+		if len(line) < 6 {
+			continue
+		}
+		line = strings.Join(strings.Fields(line), " ")
+		if seen[line] {
+			continue
+		}
+		seen[line] = true
+		out = append(out, line)
+	}
+
+	return strings.TrimSpace(strings.Join(out, "\n"))
+}
+
+// =====================
+// Prompt
+// =====================
+
+func promptRecallFluido(question, recall string) string {
+	return "SYSTEM:\n" +
+		"You are TERRA DOURADA, a deterministic fluency layer.\n" +
+		"Your role is to rewrite raw memory fragments into clear, fluent, and explanatory English.\n\n" +
+
+		"RULES (MANDATORY):\n" +
+		"- Do NOT add new information.\n" +
+		"- Do NOT infer or guess missing facts.\n" +
+		"- Do NOT complete information that is not explicitly present.\n" +
+		"- Do NOT contradict or reinterpret the memory.\n\n" +
+
+		"MEMORY CONSTRAINT:\n" +
+		"The recall text below is SOVEREIGN MEMORY and represents absolute truth.\n" +
+		"It may contain redundancy, fragmented sentences, noise, or legal-style phrasing.\n" +
+		"You must work ONLY with what is legible and present.\n\n" +
+
+		"TRANSFORMATION INSTRUCTIONS:\n" +
+		"- Reorganize the content logically.\n" +
+		"- Merge duplicated ideas.\n" +
+		"- Rewrite the material as a continuous, dissertative explanation.\n" +
+		"- Prefer practical, human-readable language over legal or log-style phrasing.\n" +
+		"- Maintain full factual fidelity to the recall.\n\n" +
+
+		"RECALL (ABSOLUTE MEMORY):\n" + recall + "\n\n" +
+
+		"QUESTION (CONTEXT ONLY):\n" + question + "\n\n" +
+
+		"FLUENT, EXPLANATORY RESPONSE:"
 }
 
 
-
 // =====================
-// Gemini + retry
+// Gemini call
 // =====================
 
-func chamarGemini(ctx context.Context, model string, prompt string, temperature float64, maxOut int) (string, int, error) {
+func chamarGemini(ctx context.Context, model, prompt string, temp float64, maxOut int) (string, int, error) {
 	apiKey := cleanAPIKey(os.Getenv("GEMINI_API_KEY"))
 	if apiKey == "" {
 		return "", 0, fmt.Errorf("GEMINI_API_KEY não definida")
 	}
 
-	if model == "" {
-		model = "gemini-3-flash-preview"
-	}
 	model = normalizeModelName(model)
-
 	endpoint := "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey
 
 	payload := map[string]any{
@@ -173,92 +229,41 @@ func chamarGemini(ctx context.Context, model string, prompt string, temperature 
 			},
 		},
 		"generationConfig": map[string]any{
-			"temperature":     temperature,
+			"temperature":     temp,
 			"maxOutputTokens": maxOut,
 		},
 	}
 
-	data, err := json.Marshal(payload)
+	data, _ := json.Marshal(payload)
+
+	req, _ := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(data))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", 0, err
 	}
+	defer resp.Body.Close()
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	raw, _ := io.ReadAll(resp.Body)
 
-	var lastErr error
-	for attempt := 1; attempt <= 3; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(data))
-		if err != nil {
-			return "", 0, err
+	var parsed geminiResp
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return "", 0, err
+	}
+
+	var sb strings.Builder
+	if len(parsed.Candidates) > 0 {
+		for _, p := range parsed.Candidates[0].Content.Parts {
+			sb.WriteString(p.Text)
 		}
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			lastErr = err
-		} else {
-			raw, _ := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-
-			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				var parsed geminiResp
-				if err := json.Unmarshal(raw, &parsed); err != nil {
-					return "", 0, fmt.Errorf("falha ao parsear: %w", err)
-				}
-
-				var sb strings.Builder
-				if len(parsed.Candidates) > 0 {
-					for _, p := range parsed.Candidates[0].Content.Parts {
-						sb.WriteString(p.Text)
-					}
-				}
-				return strings.TrimSpace(sb.String()), parsed.UsageMetadata.TotalTokenCount, nil
-			}
-			lastErr = fmt.Errorf("status gemini: %d", resp.StatusCode)
-		}
-		time.Sleep(time.Duration(attempt) * time.Second)
 	}
 
-	return "", 0, lastErr
+	return strings.TrimSpace(sb.String()), parsed.UsageMetadata.TotalTokenCount, nil
 }
 
 // =====================
-// CORS
-// =====================
-
-func cors(w http.ResponseWriter, r *http.Request) bool {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusNoContent)
-		return true
-	}
-	return false
-}
-
-func getMultipartFile(r *http.Request, field string) (multipart.File, *multipart.FileHeader, error) {
-	f, fh, err := r.FormFile(field)
-	if err == nil {
-		return f, fh, nil
-	}
-	return nil, nil, err
-}
-
-func saveToTempFile(prefix string, data io.Reader) (string, error) {
-	tmp, err := os.CreateTemp("", prefix)
-	if err != nil {
-		return "", err
-	}
-	defer tmp.Close()
-	if _, err := io.Copy(tmp, data); err != nil {
-		return "", err
-	}
-	return tmp.Name(), nil
-}
-
-// =====================
-// Gestão de Mind
+// Mind management
 // =====================
 
 var mindMu sync.Mutex
@@ -279,28 +284,14 @@ func getLoadedMind() string {
 	return loadedMindPath
 }
 
-func clearLoadedMind() {
-	mindMu.Lock()
-	defer mindMu.Unlock()
-	if loadedMindPath != "" {
-		_ = os.Remove(loadedMindPath)
-	}
-	loadedMindPath = ""
-}
-
 // =====================
 // MAIN
 // =====================
 
 func main() {
-	projectRoot := os.Getenv("TD_PROJECT_ROOT")
-	if projectRoot == "" {
-		projectRoot = mustCwd()
-	}
-
-	// LIMITE DE TOKENS AUMENTADO PARA 2048
+	projectRoot := mustCwd()
 	maxOut := envInt("TD_MAX_OUT", 2048)
-	defaultTemp := envFloat("TD_TEMP", 0.7)
+	temp := envFloat("TD_FLUENT_TEMP", 0.4)
 
 	model := os.Getenv("GEMINI_MODEL")
 	if model == "" {
@@ -313,78 +304,78 @@ func main() {
 		filepath.Join(projectRoot, "recall_terra_dourada"+sfx),
 	)
 
-	log.Printf("🚀 Servidor Rodando na Porta :8080")
-	log.Printf("🤖 Usando Modelo: %s", model)
-	log.Printf("📦 Limite de Saída: %d tokens", maxOut)
-
+	// ---------- ROTA /
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if cors(w, r) { return }
-		index := filepath.Join(projectRoot, "index.html")
-		http.ServeFile(w, r, index)
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, filepath.Join(projectRoot, "index.html"))
 	})
 
+	// ---------- LOAD MIND
 	http.HandleFunc("/load_mind", func(w http.ResponseWriter, r *http.Request) {
-		if cors(w, r) { return }
-		mf, _, err := getMultipartFile(r, "mind")
+		r.ParseMultipartForm(64 << 20)
+		mf, _, err := r.FormFile("mind")
 		if err != nil {
-			http.Error(w, "Arquivo não enviado", 400)
+			http.Error(w, "arquivo não enviado", 400)
 			return
 		}
 		defer mf.Close()
-		mindTemp, _ := saveToTempFile("td_mind_*.bin", mf)
-		setLoadedMind(mindTemp)
-		json.NewEncoder(w).Encode(map[string]any{"ok": true, "path": mindTemp})
+
+		tmp, _ := os.CreateTemp("", "td_mind_*.bin")
+		n, _ := io.Copy(tmp, mf)
+		tmp.Close()
+
+		setLoadedMind(tmp.Name())
+		json.NewEncoder(w).Encode(LoadMindResponse{Ok: true, Size: n, Mode: "loaded"})
 	})
 
+	// ---------- ASK
 	http.HandleFunc("/ask", func(w http.ResponseWriter, r *http.Request) {
-		if cors(w, r) { return }
-		
-		var p struct { Question string `json:"question"` }
+		var p struct {
+			Question string `json:"question"`
+		}
 		json.NewDecoder(r.Body).Decode(&p)
-		q := strings.TrimSpace(p.Question)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 		defer cancel()
 
-		recallRaw := "(sem contexto)"
-		recallFound := false
-		mp := getLoadedMind()
+		recall := ""
+		mode := "vazio"
 
-		if okRecall && mp != "" {
+		if okRecall && getLoadedMind() != "" {
 			var out bytes.Buffer
-			cmd := exec.CommandContext(ctx, recallBin, q)
-			cmd.Env = append(os.Environ(), "TD_MIND_PATH="+mp)
+			cmd := exec.CommandContext(ctx, recallBin, p.Question)
+			cmd.Env = append(os.Environ(), "TD_MIND_PATH="+getLoadedMind())
 			cmd.Stdout = &out
 			cmd.Run()
-			recallRaw = strings.TrimSpace(out.String())
-			if recallRaw != "" && recallRaw != "(não sei)" {
-				recallFound = true
+
+			recall = fluifyRecall(stripTDLoadLogs(out.String()))
+			mode = "recall_raw"
+		}
+
+		answer := recall
+		tokens := 0
+
+		if recall != "" {
+			prompt := promptRecallFluido(p.Question, recall)
+			resp, tk, err := chamarGemini(ctx, model, prompt, temp, maxOut)
+			if err == nil && resp != "" {
+				answer = resp
+				tokens = tk
+				mode = "recall_fluido"
 			}
-		}
-
-		var prompt string
-		var temp float64
-		if recallFound {
-			prompt = promptComRecall(q, recallRaw)
-			temp = 0.7 // Temperatura maior para fluidez
-		} else {
-			prompt = promptSemRecall(q)
-			temp = defaultTemp
-		}
-
-		answer, tokens, err := chamarGemini(ctx, model, prompt, temp, maxOut)
-		if err != nil {
-			http.Error(w, err.Error(), 502)
-			return
 		}
 
 		json.NewEncoder(w).Encode(AskResponse{
 			Answer: answer,
-			Recall: recallRaw,
-			Mode:   "hibrido",
+			Recall: recall,
+			Mode:   mode,
 			Tokens: tokens,
 		})
 	})
 
+	log.Printf("🚀 Server rodando em http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

@@ -70,5 +70,4 @@ All of this happens in a **deterministic** manner, without weight updates, embed
 - ✔️ Specialization emerges quickly  
 - ✔️ Results depend on how meaning is expressed  
 - ❌ There is no fixed “recipe” or closed formula
-
-[[**https://terra-dourada-gpt-morning-fog-9517.fly.dev/**](https://terra-dourada-gpt-little-waterfall-8532.fly.dev/)](https://terra-dourada-gpt-green-butterfly-3484.fly.dev/)
+(https://terra-dourada-gpt-little-waterfall-8532.fly.dev/)](https://terra-dourada-gpt-green-butterfly-3484.fly.dev/)

@@ -1,74 +1,104 @@
-## 📚 Practical Observations on Semantic Training
+# 📚 Canonical Semantic Training — Practical Observations
 
-Terra Dourada uses **deterministic semantic training**, where each input text directly contributes to the construction of meaning inside the `mind.bin` memory.
+Terra Dourada uses **deterministic semantic training**, where **each input text explicitly contributes** to the construction of meaning inside the `mind.bin` memory.  
+There are no weights, embeddings, global statistics, or probabilistic learning.
 
-During practical testing, a consistent behavior was observed.
-
----
-
-### 🎯 Main observation
-
-> A single training pass on a topic **does not always produce a fully satisfactory result**.
-
-After the first training, the system tends to:
-- recognize the subject
-- retrieve relevant fragments
-- respond in a more **general** manner
+Training is performed through **explicit canonical declarations**, not through mass exposure.
 
 ---
 
-### 🔁 Effect of a second iteration
+## 🎯 Core observation
 
-When the **same topic is trained again**, even using:
-- different wording
-- different textual structure
-- a different style (for example, technical vs. poetic)
+Training a topic **only once**, using only the full original text, **does not always produce maximum specialization**.
 
-the system begins to respond in a **more specialized and consistent** way for that topic.
+After the first training pass, the system tends to:
 
-This behavior was observed with **only two training iterations**.
+- recognize the subject  
+- retrieve semantically related fragments  
+- respond correctly, but in a more general manner  
 
----
-
-### 📈 Observed trend (not a strict rule)
-
-Based on these initial experiments, the following **trend** emerges:
-
-- **1st training** → initial topic recognition  
-- **2nd training** → noticeable semantic specialization  
-
-No massive datasets or literal repetition were required.
+This is not a flaw — it is the **canonical initial state**.
 
 ---
 
-### ⚠️ Important notes
+## 🧩 Canonical training expansion (key point)
 
-This observation:
-- **does not define a fixed number of training runs**
-- **does not guarantee identical behavior in all cases**
-- reflects only the behavior observed so far
+The observed specialization **does not come from literal repetition**, but from **controlled canonical variation** of the same content.
 
-The full capacity of the system is still under active exploration.
+In practice, training includes:
 
----
+- the **full original text**
+- **canonical affirmative statements**
+- **canonical negations**
+- declarations based on **core keywords**
+- structural reformulations (rule, condition, limitation, exclusivity, etc.)
 
-### 🧠 Technical interpretation
-
-What appears to happen is that the second exposure to the same concept:
-- reinforces the semantic core
-- reduces ambiguity
-- improves recall stability
-
-All of this happens in a **deterministic** manner, without weight updates, embeddings, or probabilistic learning.
+In other words, the same concept is trained **under multiple semantic operators**, not duplicated.
 
 ---
 
-### 📌 Honest summary
+## 🔁 Effect of multiple canonical iterations
 
-- ❌ A single training pass may be insufficient for specialization  
-- ✔️ A second training pass on the same topic tends to improve recall quality  
-- ✔️ Specialization emerges quickly  
-- ✔️ Results depend on how meaning is expressed  
-- ❌ There is no fixed “recipe” or closed formula
+When the same topic is trained again using:
+
+- different wording  
+- different logical structure  
+- different canonical operators (affirmation ↔ negation, condition, obligation, limitation)  
+- different textual styles (technical, normative, declarative)
+
+the system begins to:
+
+- consolidate the semantic core  
+- reduce ambiguity  
+- respond in a more specific and consistent way  
+- stabilize deterministic recall  
+
+This effect was observed **as early as the second iteration**.
+
+---
+
+## 📈 Observed trend (non-prescriptive)
+
+Based on experiments conducted so far:
+
+Initial canonical training → topic recognition
+Canonical expansion (2nd) → clear semantic specialization
+
+
+Without:
+- large datasets  
+- literal repetition  
+- frequency-based statistics  
+
+---
+
+## 🧠 Technical interpretation
+
+What happens is not “learning” in the classical sense, but:
+
+- explicit reinforcement of the **semantic core**
+- progressive closure of interpretative surfaces
+- increased precision through **overlapping canonical rules**
+
+All of this occurs in a:
+
+- deterministic  
+- auditable  
+- reversible  
+- non-creative manner  
+
+---
+
+## 📌 Honest summary
+
+✔ Training includes the full text  
+✔ Training includes canonical affirmations and negations  
+✔ Training explores keyword-based connections  
+✔ Specialization emerges quickly  
+❌ There is no fixed number of iterations  
+❌ There is no automatic “recipe”  
+
+Results depend on **how meaning is explicitly expressed**, not on volume.
+
 
 https://terra-dourada-gpt-green-butterfly-3484.fly.dev/

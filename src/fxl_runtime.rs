@@ -1,5 +1,5 @@
 use crate::persistencia::load_binary;
-use crate::semantic::{SemanticMemory, recall};
+use crate::semantic::SemanticMemory;
 
 pub struct FxlRuntime {
     pub memory: SemanticMemory,
@@ -11,11 +11,12 @@ impl FxlRuntime {
         Self { memory }
     }
 
-    pub fn ask(&self, query: &str) -> String {
-        if let Some(entry) = recall(&self.memory, query) {
-            entry.texto.clone()
-        } else {
-            "(não sei)".to_string()
-        }
+    pub fn ask(&self, _query: &str) -> String {
+        // versão mínima: retorna o último texto armazenado, ou "(não sei)"
+        self.memory
+            .banco
+            .last()
+            .cloned()
+            .unwrap_or_else(|| "(não sei)".to_string())
     }
 }

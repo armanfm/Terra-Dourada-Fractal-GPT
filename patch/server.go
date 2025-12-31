@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -138,15 +139,33 @@ var listaA = []string{
 }
 
 var listaB = []string{
+	// PT
 	"posso",
 	"consigo",
+	"poderia",
 	"dá pra",
 	"da pra",
 	"é possível",
 	"e possivel",
+
+	// EN
 	"can i",
+	"could i",
+	"can you",
+	"could you",
+	"would you",
 	"am i able to",
+	"is it possible",
 }
+
+// ordena por tamanho desc p/ casar o maior primeiro (determinístico)
+var listaBSorted = func() []string {
+	cp := append([]string{}, listaB...)
+	sort.SliceStable(cp, func(i, j int) bool {
+		return len(cp[i]) > len(cp[j])
+	})
+	return cp
+}()
 
 func splitSentences(text string) []string {
 	// Split determinístico por delimitadores de frase.
@@ -188,9 +207,125 @@ func containsAny(sentence string, keys []string) bool {
 func containsListaA(sentence string) bool { return containsAny(sentence, listaA) }
 func containsListaB(sentence string) bool { return containsAny(sentence, listaB) }
 
+// =====================
+// Lista B merge soberano (A só como fonte; SOMENTE B vai pro recall)
+// =====================
+
+func normalizeToken(tok string) string {
+	tok = strings.ToLower(tok)
+	tok = strings.TrimSpace(tok)
+	tok = strings.Trim(tok, " \t\n\r.,!?;:\"'`´()[]{}<>|/\\")
+	// remove apóstrofos internos comuns p/ reduzir ruído
+	tok = strings.ReplaceAll(tok, "'", "")
+	tok = strings.ReplaceAll(tok, "’", "")
+	tok = strings.ReplaceAll(tok, "´", "")
+	return tok
+}
+
+func tokensOrderedUnique(s string) []string {
+	fields := strings.Fields(s)
+	seen := make(map[string]bool)
+	out := []string{}
+	for _, f := range fields {
+		t := normalizeToken(f)
+		if t == "" || len(t) < 2 {
+			continue
+		}
+		if seen[t] {
+			continue
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	return out
+}
+
+// pega o que existe em A que NÃO existe em B (ordem preservada, único)
+func diffTokens(prev, curr string) string {
+	a := tokensOrderedUnique(prev)
+	b := tokensOrderedUnique(curr)
+
+	setB := make(map[string]bool, len(b))
+	for _, t := range b {
+		setB[t] = true
+	}
+
+	out := []string{}
+	for _, t := range a {
+		if !setB[t] {
+			out = append(out, t)
+		}
+	}
+	return strings.Join(out, " ")
+}
+
+func findListaBMatch(sentence string) (int, string) {
+	lower := strings.ToLower(sentence)
+
+	bestIdx := -1
+	bestKey := ""
+
+	for _, k := range listaBSorted {
+		if k == "" {
+			continue
+		}
+		i := strings.Index(lower, k)
+		if i < 0 {
+			continue
+		}
+		// escolhe o match mais à esquerda; em empate, o maior
+		if bestIdx == -1 || i < bestIdx || (i == bestIdx && len(k) > len(bestKey)) {
+			bestIdx = i
+			bestKey = k
+		}
+	}
+	return bestIdx, bestKey
+}
+
+// Reconstrói SOMENTE a frase B:
+// B := (prefixo até fim do gatilho ListaB) + " " + (tokens de A que não estão em B) + " " + (resto da B)
+func rebuildListaB(prevA, currB string) string {
+	currB = strings.TrimSpace(currB)
+	d := diffTokens(prevA, currB)
+	if d == "" {
+		return currB
+	}
+
+	idx, key := findListaBMatch(currB)
+	if idx < 0 || key == "" {
+		// fallback determinístico: injeta no final
+		if strings.Contains(currB, "?") {
+			return strings.TrimSpace(currB + " " + d)
+		}
+		return strings.TrimSpace(currB + " " + d + "?")
+	}
+
+	insertPos := idx + len(key)
+	if insertPos < 0 || insertPos > len(currB) {
+		// paranoia de bounds (não deve acontecer)
+		if strings.Contains(currB, "?") {
+			return strings.TrimSpace(currB + " " + d)
+		}
+		return strings.TrimSpace(currB + " " + d + "?")
+	}
+
+	prefix := strings.TrimSpace(currB[:insertPos])
+	rest := strings.TrimSpace(currB[insertPos:])
+
+	if rest != "" {
+		return strings.TrimSpace(prefix + " " + d + " " + rest)
+	}
+
+	// se não tinha resto, garante ? se B não tinha
+	if strings.Contains(currB, "?") {
+		return strings.TrimSpace(prefix + " " + d)
+	}
+	return strings.TrimSpace(prefix + " " + d + "?")
+}
+
 // extractQuestionCore:
 // - 1) Encontra a PRIMEIRA frase que contém Lista A e retorna essa + as seguintes.
-// - 2) Se não existir Lista A, tenta Lista B (somente se tiver "?" na frase).
+// - 2) Se não existir Lista A, usa Lista B reconstruindo SOMENTE B com diff vindo de A (frase anterior).
 // - 3) Se nada, retorna "".
 func extractQuestionCore(text string) string {
 	sentences := splitSentences(text)
@@ -203,7 +338,11 @@ func extractQuestionCore(text string) string {
 
 	for i, s := range sentences {
 		if containsListaB(s) && strings.Contains(s, "?") {
-			return strings.TrimSpace(strings.Join(sentences[i:], " "))
+			if i > 0 {
+				// ✅ SOMENTE a frase B vai pro recall (A só alimenta tokens faltantes)
+				return rebuildListaB(sentences[i-1], s)
+			}
+			return strings.TrimSpace(s)
 		}
 	}
 
@@ -443,7 +582,7 @@ func main() {
 
 		if okRecall && getLoadedMind() != "" && strings.TrimSpace(questionCore) != "" {
 			var out bytes.Buffer
-			// ✅ Recall recebe só a pergunta (núcleo)
+			// ✅ Recall recebe só a pergunta (núcleo) — e na Lista B, é SOMENTE B reconstruída
 			cmd := exec.CommandContext(ctx, recallBin, questionCore)
 			cmd.Env = append(os.Environ(), "TD_MIND_PATH="+getLoadedMind())
 			cmd.Stdout = &out

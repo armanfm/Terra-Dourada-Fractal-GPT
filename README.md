@@ -169,5 +169,23 @@ It produces a sovereign semantic base that can be loaded locally or accessed via
 - The generated `mind.bin` belongs exclusively to the user who created it
 - The training endpoint is exposed for **technical demonstration and validation**
 - The internal training logic is part of the Terra Dourada core system
+---
+- ## 🟡 Terra Dourada — Fractal GPT
+
+**Terra Dourada Fractal GPT** is a **deterministic artificial intelligence system** built on **explicit semantic memory**, with no weights, no opaque embeddings, and no probabilistic learning.
+
+Knowledge is constructed through **canonical declarations** and controlled semantic variations, resulting in a fully auditable, reproducible, and verifiable model.
+
+🔹 Not an LLM  
+🔹 No global statistics  
+🔹 No hallucinations  
+🔹 Every response is traceable to memory (`mind.bin`)
+
+🌐 **Public demo**:  
+👉 https://terra-dourada-gpt-green-butterfly-3484.fly.dev/
+
+License: MIT  
+Author: Armando Freire
+
 
 

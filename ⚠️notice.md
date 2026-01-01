@@ -26,7 +26,7 @@ Knowledge is constructed through **canonical declarations** and controlled seman
 🔹 Every response is traceable to memory (`mind.bin`)
 
 🌐 **Public demo**:  
-👉 https://terra-dourada-gpt-green-butterfly-3484.fly.dev/
+👉 https://terra-dourada-fractal-gpt.fly.dev/
 
 License: MIT  
 Author: Armando Freire

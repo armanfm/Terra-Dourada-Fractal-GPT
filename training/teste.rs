@@ -89,11 +89,11 @@ fn main() {
     let casos = vec![
         ("terra dourada soberana", "terra dourada soberana"),
         ("terra dourada soberana", "terra dourada rainha"),
-        ("solana", "ethereum"),
+        ("gemini", "ethereum"),
         ("o cachorro corre no parque", "o cão corre no jardim"),
-        ("solana hackathon winner", "winner of the solana hackathon"),
-        ("solana-hackathon-winner", "solana hackathon winner"),
-        ("solaná hackathon", "solana hackathon"),
+        ("gemini hackathon winner", "winner of the gemini hackathon"),
+        ("gemini-hackathon-winner", "gemini hackathon winner"),
+        ("gemini hackathon", "gemini hackathon"),
     ];
 
     for (a, b) in casos {
@@ -103,3 +103,4 @@ fn main() {
     println!("=====================================");
     println!("✅ Experimento Base64 finalizado");
 }
+

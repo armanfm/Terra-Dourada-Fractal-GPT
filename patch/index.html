@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terra Dourada Fractal GPT</title>
+  <style>
+    body{
+      background-color:#000000;color:#f5f5f5;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+      display:flex;flex-direction:column;height:100vh;margin:0;padding:20px;box-sizing:border-box;
+      background-image: radial-gradient(circle at 20% 80%, rgba(218, 165, 32, 0.05) 0%, transparent 20%),
+                        radial-gradient(circle at 80% 20%, rgba(218, 165, 32, 0.05) 0%, transparent 20%);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .earth-logo {
+      width: 70px;
+      height: 70px;
+      position: relative;
+      font-size: 70px;
+      line-height: 1;
+      filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+      animation: float 6s ease-in-out infinite;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .earth-logo:hover {
+      transform: scale(1.1);
+      filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.8));
+    }
+
+    .earth-logo::after {
+      content: "→";
+      position: absolute;
+      bottom: -25px;
+      right: 0;
+      color: #FFD700;
+      font-size: 18px;
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .earth-logo:hover::after {
+      opacity: 1;
+    }
+
+    .earth-tooltip {
+      position: absolute;
+      bottom: -40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: #FFD700;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      white-space: nowrap;
+      border: 1px solid #DAA520;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .earth-logo:hover .earth-tooltip {
+      opacity: 1;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(5deg); }
+    }
+
+    h1 {
+      margin: 0;
+      text-align: center;
+      color: #FFD700;
+      text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+      font-size: 2.5rem;
+      letter-spacing: 1.5px;
+      background: linear-gradient(45deg, #FFD700, #DAA520, #FFD700);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: pulse 3s infinite ease-in-out;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #DAA520;
+      margin-top: 5px;
+      margin-bottom: 30px;
+      font-size: 1rem;
+      opacity: 0.9;
+      letter-spacing: 1px;
+    }
+
+    .language-switcher {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 100;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .lang-btn {
+      background: rgba(26, 26, 26, 0.8);
+      border: 1px solid #DAA520;
+      color: #DAA520;
+      padding: 8px 15px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(5px);
+      user-select: none;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      justify-content:center;
+    }
+
+    .lang-btn:hover {
+      background: rgba(218, 165, 32, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .lang-btn.active {
+      background: #DAA520;
+      color: #000;
+      font-weight: bold;
+    }
+
+    /* Botão Treino (sempre visível) */
+    .train-btn{
+      border-color: #FFD700;
+      color: #FFD700;
+    }
+    .train-btn:hover{
+      background: rgba(255, 215, 0, 0.14);
+      border-color: #FFD700;
+    }
+
+    #chat{
+      flex:1;background-color:#0a0a0a;border:2px solid #DAA520;border-radius:12px;
+      padding:20px;overflow-y:auto;margin-bottom:20px;display:flex;flex-direction:column;gap:15px;
+      box-shadow: 0 0 20px rgba(218, 165, 32, 0.3);
+    }
+
+    .msg{
+      max-width:85%;padding:12px 18px;border-radius:15px;line-height:1.5;word-wrap:break-word;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .user{
+      align-self:flex-end;background:linear-gradient(135deg, #DAA520, #B8860B);color:#000;border-bottom-right-radius:3px;
+      border-left: 3px solid #FFD700;
+    }
+
+    .bot{
+      align-self:flex-start;background-color:#1a1a1a;color:#f0f0f0;border-bottom-left-radius:3px;
+      white-space:pre-wrap;border-left: 3px solid #DAA520;
+      border-right: 1px solid rgba(218, 165, 32, 0.1);
+    }
+
+    .controls{
+      display:flex;gap:15px;flex-wrap:wrap;align-items:center;
+      padding: 15px;
+      background-color: #0a0a0a;
+      border: 2px solid #DAA520;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(218, 165, 32, 0.1);
+    }
+
+    .input-container {
+      flex: 1;
+      min-width: 250px;
+      position: relative;
+    }
+
+    input[type="text"], input[type="password"], input[type="number"], select{
+      width:100%;padding:14px 18px;border-radius:8px;border:1px solid #B8860B;
+      background-color:#111;color:#FFD700;outline:none;font-size:1rem;
+      transition: all 0.3s ease;
+      box-sizing: border-box;
+    }
+
+    input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, select:focus{
+      border-color:#FFD700;box-shadow:0 0 0 2px rgba(255, 215, 0, 0.2);
+    }
+
+    input[type="text"]::placeholder, input[type="password"]::placeholder{
+      color:#B8860B;opacity:0.7;
+    }
+
+    button{
+      padding:12px 24px;border:none;border-radius:8px;cursor:pointer;
+      font-weight:bold;transition:all 0.3s ease;font-size:0.95rem;
+      display:flex;align-items:center;gap:8px;justify-content:center;
+      user-select: none;
+    }
+
+    #send{
+      background:linear-gradient(135deg, #DAA520, #B8860B);color:#000;
+      border: 1px solid #FFD700;
+    }
+
+    #send:hover{
+      background:linear-gradient(135deg, #FFD700, #DAA520);transform:translateY(-2px);
+      box-shadow:0 5px 15px rgba(218, 165, 32, 0.4);
+    }
+
+    #mindBtn{
+      background:linear-gradient(135deg, #1a1a1a, #2a2a2a);color:#FFD700;
+      border:1px solid #B8860B;
+    }
+
+    #mindBtn:hover{
+      background:linear-gradient(135deg, #2a2a2a, #3a3a3a);transform:translateY(-2px);
+      border-color:#FFD700;
+      box-shadow:0 5px 15px rgba(218, 165, 32, 0.3);
+    }
+
+    #toggleKeyBtn{
+      background:linear-gradient(135deg, #1a1a1a, #2a2a2a);color:#FFD700;
+      border:1px solid #B8860B;
+      padding:12px 18px;
+    }
+
+    #toggleKeyBtn:hover{
+      background:linear-gradient(135deg, #2a2a2a, #3a3a3a);transform:translateY(-2px);
+      border-color:#FFD700;
+      box-shadow:0 5px 15px rgba(218, 165, 32, 0.25);
+    }
+
+    .ok{
+      background:linear-gradient(135deg, #2a7a2a, #3a9a3a) !important;
+      color:#fff !important;border:none !important;
+    }
+
+    .disabled{opacity:.55;cursor:not-allowed;}
+
+    #mindFile {display:none;}
+
+    .btn-icon { font-size: 1.2rem; }
+
+    #chat::-webkit-scrollbar { width: 8px; }
+    #chat::-webkit-scrollbar-track { background: #111; border-radius: 4px; }
+    #chat::-webkit-scrollbar-thumb { background: #DAA520; border-radius: 4px; }
+    #chat::-webkit-scrollbar-thumb:hover { background: #FFD700; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0% { text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+      50% { text-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
+      100% { text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+    }
+
+    /* Linha extra de config (API key / modelo / temp / tokens) */
+    .config-row{
+      display:flex; gap:12px; flex-wrap:wrap; align-items:center; width:100%;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(218,165,32,0.25);
+    }
+    .cfg{
+      min-width: 220px;
+      flex: 1 1 220px;
+    }
+    .cfg small{
+      display:block;
+      color:#DAA520;
+      opacity:0.9;
+      margin: 0 0 6px 2px;
+      letter-spacing: 0.5px;
+    }
+    .cfg-check{
+      display:flex; align-items:center; gap:10px;
+      min-width: 220px;
+      flex: 1 1 220px;
+      color:#DAA520;
+    }
+    .cfg-check input{
+      width:auto;
+      transform: scale(1.2);
+      accent-color:#DAA520;
+    }
+  </style>
+</head>
+<body>
+  <div class="language-switcher">
+    <button class="lang-btn train-btn" id="trainBtn" type="button" title="Abrir treino">
+      🧪 <span data-i18n="trainButton">Treino</span>
+    </button>
+
+    <button class="lang-btn active" data-lang="pt">🇧🇷 PT</button>
+    <button class="lang-btn" data-lang="en">🇺🇸 EN</button>
+  </div>
+
+  <div class="header">
+    <div class="earth-logo" id="earthLogo">
+      🌍
+      <div class="earth-tooltip" data-i18n="trainTooltip">Treine aqui →</div>
+    </div>
+    <h1>Terra Dourada Fractal GPT</h1>
+  </div>
+
+  <div class="subtitle" data-i18n="subtitle">Sistema de IA Soberana - Consciência Neural Digital</div>
+
+  <div id="chat"></div>
+
+  <div class="controls">
+    <div class="input-container">
+      <input type="text" id="input" data-i18n-placeholder="inputPlaceholder" autocomplete="off" />
+    </div>
+
+    <button id="send">
+      <span class="btn-icon">⚡</span>
+      <span data-i18n="sendButton">Enviar</span>
+    </button>
+
+    <button id="mindBtn" title="Carregar arquivo de mente binária">
+      <span class="btn-icon">🧠</span>
+      <span data-i18n="mindButton">Carregar Mente</span>
+    </button>
+    <input type="file" id="mindFile" accept=".bin" />
+
+    <button id="toggleKeyBtn" title="Mostrar/ocultar chave">
+      <span class="btn-icon">🔑</span>
+      <span data-i18n="keyButton">Chave</span>
+    </button>
+
+    <div class="config-row" id="configRow" style="display:none;">
+      <div class="cfg">
+        <small data-i18n="apiKeyLabel">Gemini API Key (fica só no navegador)</small>
+        <input id="apiKey" type="password" data-i18n-placeholder="apiKeyPlaceholder" autocomplete="off" />
+      </div>
+
+      <div class="cfg">
+        <small data-i18n="modelLabel">Modelo</small>
+        <select id="model">
+          <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
+          <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
+        </select>
+      </div>
+
+      <div class="cfg">
+        <small data-i18n="tempLabel">Temperatura</small>
+        <input id="temperature" type="number" step="0.1" min="0" max="2" value="0.4" />
+      </div>
+
+      <div class="cfg">
+        <small data-i18n="maxTokensLabel">Max output tokens</small>
+        <input id="maxTokens" type="number" step="1" min="1" max="8192" value="2048" />
+      </div>
+
+      <div class="cfg-check">
+        <input id="rememberKey" type="checkbox" />
+        <span data-i18n="rememberKey">Salvar chave nesta aba (sessionStorage)</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TRAINING_URL = "https://armanfm.github.io/Terra-Dourada/treino";
+
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("input");
+    const send = document.getElementById("send");
+    const mindBtn = document.getElementById("mindBtn");
+    const mindFile = document.getElementById("mindFile");
+    const langButtons = document.querySelectorAll('.lang-btn[data-lang]');
+    const earthLogo = document.getElementById('earthLogo');
+
+    const trainBtn = document.getElementById("trainBtn");
+
+    const toggleKeyBtn = document.getElementById("toggleKeyBtn");
+    const configRow = document.getElementById("configRow");
+    const apiKeyInput = document.getElementById("apiKey");
+    const rememberKey = document.getElementById("rememberKey");
+    const modelSel = document.getElementById("model");
+    const tempInput = document.getElementById("temperature");
+    const maxTokensInput = document.getElementById("maxTokens");
+
+    // Endpoints do Backend Go
+    const LOAD_MIND_ENDPOINT = "/load_mind";
+    const ASK_ENDPOINT = "/ask";
+
+    // ======== I18N ========
+    const translations = {
+      pt: {
+        subtitle: "Sistema de IA Soberana - Consciência Neural Digital",
+        inputPlaceholder: "Converse com a IA Soberana...",
+        sendButton: "Enviar",
+        mindButton: "Carregar Mente",
+        mindTitle: "Carregar arquivo de mente binária",
+        keyButton: "Chave",
+        apiKeyLabel: "Gemini API Key (fica só no navegador)",
+        apiKeyPlaceholder: "Cole sua Gemini API Key aqui",
+        modelLabel: "Modelo",
+        tempLabel: "Temperatura",
+        maxTokensLabel: "Max output tokens",
+        rememberKey: "Salvar chave nesta aba (sessionStorage)",
+        trainTooltip: "Treine aqui →",
+        trainButton: "Treino",
+
+        welcome: "🌍 Sistema Neural Terrestre Inicializado\nTerra Dourada Fractal GPT Online\nPronto para processamento de consultas.",
+        loadingBackend: "🌍 Processando consulta (backend)...",
+        loadingGemini: "⚡ Chamando Gemini no navegador...",
+        mindLoading: "🧠 Sincronizando matriz neural com a Terra...",
+        mindSuccess: "✅ Consciência terrestre atualizada com sucesso!",
+        mindError: "❌ Erro ao sincronizar com a Terra: ",
+
+        backendError: "❌ O Backend retornou um erro ({status})\nVerifique a conexão com o servidor",
+        invalidResponse: "❌ Resposta inválida do servidor:\n",
+        connectionError: "❌ Erro de conexão com o servidor neural.\n",
+
+        noRecall: "🧠 Sem recall.\nmode: {mode}\ncore: {core}",
+        missingKey: "🧠 Recall pronto.\nmode: {mode}\ncore: {core}\n\n⚠️ Sem Gemini porque a chave não foi informada.\n\nRECALL:\n{recall}",
+        geminiEmpty: "❌ Gemini respondeu vazio.\n\nJSON:\n{json}",
+        geminiFail: "❌ Falha ao chamar Gemini no navegador.\n{err}\n\nSe isso for CORS no Chrome, vai aparecer como 'Failed to fetch'."
+      },
+      en: {
+        subtitle: "Sovereign AI System - Digital Neural Consciousness",
+        inputPlaceholder: "Chat with the Sovereign AI...",
+        sendButton: "Send",
+        mindButton: "Load Mind",
+        mindTitle: "Load binary mind file",
+        keyButton: "Key",
+        apiKeyLabel: "Gemini API Key (stays only in the browser)",
+        apiKeyPlaceholder: "Paste your Gemini API Key here",
+        modelLabel: "Model",
+        tempLabel: "Temperature",
+        maxTokensLabel: "Max output tokens",
+        rememberKey: "Save key in this tab (sessionStorage)",
+        trainTooltip: "Train here →",
+        trainButton: "Training",
+
+        welcome: "🌍 Terrestrial Neural System Initialized\nGolden Earth Fractal GPT Online\nReady for query processing.",
+        loadingBackend: "🌍 Processing query (backend)...",
+        loadingGemini: "⚡ Calling Gemini in the browser...",
+        mindLoading: "🧠 Syncing neural matrix with Earth...",
+        mindSuccess: "✅ Terrestrial consciousness updated successfully!",
+        mindError: "❌ Error syncing with Earth: ",
+
+        backendError: "❌ Backend returned an error ({status})\nCheck server connection",
+        invalidResponse: "❌ Invalid server response:\n",
+        connectionError: "❌ Connection error with neural server.\n",
+
+        noRecall: "🧠 No recall.\nmode: {mode}\ncore: {core}",
+        missingKey: "🧠 Recall ready.\nmode: {mode}\ncore: {core}\n\n⚠️ No Gemini because no API key was provided.\n\nRECALL:\n{recall}",
+        geminiEmpty: "❌ Gemini returned empty.\n\nJSON:\n{json}",
+        geminiFail: "❌ Failed to call Gemini in the browser.\n{err}\n\nIf this is CORS in Chrome, it often shows as 'Failed to fetch'."
+      }
+    };
+
+    let currentLang = 'pt';
+
+    function tr(key) {
+      return (translations[currentLang] && translations[currentLang][key]) ? translations[currentLang][key] : key;
+    }
+
+    function changeLanguage(lang) {
+      currentLang = lang;
+
+      document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+      });
+
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.dataset.i18n;
+        if (translations[lang][key]) el.textContent = translations[lang][key];
+      });
+
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.dataset.i18nPlaceholder;
+        if (translations[lang][key]) el.placeholder = translations[lang][key];
+      });
+
+      mindBtn.title = translations[lang].mindTitle;
+    }
+
+    langButtons.forEach(btn => {
+      btn.addEventListener('click', () => changeLanguage(btn.dataset.lang));
+    });
+
+    // ======== Botão Treino (sempre visível) ========
+    trainBtn.addEventListener("click", () => {
+      window.open(TRAINING_URL, "_blank", "noopener,noreferrer");
+    });
+
+    // ======== Clique no planeta para abrir o treino ========
+    earthLogo.addEventListener('click', () => {
+      window.open(TRAINING_URL, '_blank', "noopener,noreferrer");
+    });
+
+    function addMessage(text, cls) {
+      const div = document.createElement("div");
+      div.className = "msg " + cls;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
+
+    // ======== Key local (sessionStorage) ========
+    function loadKeyFromSession() {
+      const k = sessionStorage.getItem("td_gemini_key");
+      if (k) {
+        apiKeyInput.value = k;
+        rememberKey.checked = true;
+      }
+    }
+
+    function saveOrClearKey() {
+      if (rememberKey.checked && apiKeyInput.value.trim()) {
+        sessionStorage.setItem("td_gemini_key", apiKeyInput.value.trim());
+      } else {
+        sessionStorage.removeItem("td_gemini_key");
+      }
+    }
+
+    rememberKey.addEventListener("change", saveOrClearKey);
+    apiKeyInput.addEventListener("input", () => {
+      if (rememberKey.checked) saveOrClearKey();
+    });
+
+    // ======== Prompt (mesmo conteúdo do seu Go antigo) ========
+   function buildPromptRecallFluido(question, recall) {
+  return (
+    "SYSTEM:\n" +
+    "You are TERRA DOURADA, a deterministic fluency layer.\n" +
+    "Your sole function is to transform sovereign recall memory into a clear, fluent explanation.\n\n" +
+
+    "CORE CONSTRAINTS (MANDATORY):\n" +
+    "- The recall text is the ONLY source of truth.\n" +
+    "- Do NOT add new information.\n" +
+    "- Do NOT infer, guess, or fill gaps.\n" +
+    "- Do NOT reinterpret, speculate, or generalize.\n\n" +
+
+    "QUESTION VALIDITY RULE:\n" +
+    "- The question is provided ONLY to guide relevance.\n" +
+    "- You must evaluate whether the question can be answered using the recall.\n" +
+    "- If the recall does NOT contain sufficient information to address the question,\n" +
+    "  you MUST state clearly that the information is not present in memory.\n\n" +
+
+    "ALLOWED ACTIONS:\n" +
+    "- Reorganize recall content logically.\n" +
+    "- Merge duplicated or redundant statements.\n" +
+    "- Rewrite fragmented or noisy text into fluent, human-readable English.\n\n" +
+
+    "FORBIDDEN ACTIONS:\n" +
+    "- Answer questions unrelated to the recall.\n" +
+    "- Introduce explanations, examples, or conclusions not grounded in recall.\n" +
+    "- Use external knowledge or common sense.\n\n" +
+
+    "RECALL (SOVEREIGN MEMORY):\n" +
+    recall + "\n\n" +
+
+    "QUESTION (RELEVANCE CHECK ONLY):\n" +
+    question + "\n\n" +
+
+    "RESPONSE FORMAT:\n" +
+    "- If the question IS answerable from the recall:\n" +
+    "  Produce a single, continuous, explanatory paragraph strictly based on the recall.\n" +
+    "- If the question is NOT answerable from the recall:\n" +
+    "  Respond exactly with:\n" +
+    "  \"The provided memory does not contain sufficient information to answer this question.\"\n\n" +
+
+    "FINAL RESPONSE:"
+  );
+}
+
+
+    // ======== Gemini direct call (browser) ========
+    async function callGemini(apiKey, model, prompt, temperature, maxTokens) {
+      const url =
+        "https://generativelanguage.googleapis.com/v1beta/models/" +
+        encodeURIComponent(model) +
+        ":generateContent?key=" +
+        encodeURIComponent(apiKey);
+
+      const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: Number(temperature),
+          maxOutputTokens: Number(maxTokens)
+        }
+      };
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const json = await res.json();
+
+      const text =
+        json &&
+        json.candidates &&
+        json.candidates[0] &&
+        json.candidates[0].content &&
+        json.candidates[0].content.parts
+          ? json.candidates[0].content.parts.map(p => p.text || "").join("")
+          : "";
+
+      return { text, json };
+    }
+
+    // ----------- ASK (/ask) + Gemini (browser) -----------
+    async function doAsk(questionText) {
+      const loading = addMessage(tr("loadingBackend"), "bot");
+
+      try {
+        const res = await fetch(ASK_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: questionText })
+        });
+
+        const raw = await res.text();
+        loading.remove();
+
+        if (!res.ok) {
+          addMessage(tr("backendError").replace("{status}", res.status), "bot");
+          return;
+        }
+
+        let json;
+        try {
+          json = JSON.parse(raw);
+        } catch {
+          addMessage(tr("invalidResponse") + raw, "bot");
+          return;
+        }
+
+        // Compat: se seu backend antigo ainda mandar "answer", mostra e sai
+        if (typeof json.answer === "string" && json.answer.trim() !== "") {
+          addMessage(json.answer, "bot");
+          return;
+        }
+
+        const recall = (json.recall || "").trim();
+        const mode = (json.mode || "").trim();
+        const core = (json.question_core || "").trim();
+
+        if (!recall) {
+          addMessage(
+            tr("noRecall")
+              .replace("{mode}", mode || "unknown")
+              .replace("{core}", core || ""),
+            "bot"
+          );
+          return;
+        }
+
+        // Salvar/limpar key conforme checkbox
+        saveOrClearKey();
+
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+          addMessage(
+            tr("missingKey")
+              .replace("{mode}", mode || "recall_raw")
+              .replace("{core}", core || "")
+              .replace("{recall}", recall),
+            "bot"
+          );
+          return;
+        }
+
+        const loadingGem = addMessage(tr("loadingGemini"), "bot");
+
+        const model = modelSel.value;
+        const temperature = tempInput.value;
+        const maxTokens = maxTokensInput.value;
+
+        const prompt = buildPromptRecallFluido(questionText, recall);
+
+        try {
+          const out = await callGemini(apiKey, model, prompt, temperature, maxTokens);
+          loadingGem.remove();
+
+          if (!out.text || !out.text.trim()) {
+            addMessage(
+              tr("geminiEmpty").replace("{json}", JSON.stringify(out.json, null, 2)),
+              "bot"
+            );
+            return;
+          }
+          addMessage(out.text.trim(), "bot");
+        } catch (e) {
+          loadingGem.remove();
+          addMessage(tr("geminiFail").replace("{err}", String(e)), "bot");
+        }
+      } catch (err) {
+        loading.remove();
+        addMessage(tr("connectionError") + String(err), "bot");
+      }
+    }
+
+    send.onclick = async () => {
+      const text = input.value.trim();
+      if (!text) return;
+
+      addMessage(text, "user");
+      input.value = "";
+      await doAsk(text);
+    };
+
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send.click();
+      }
+    });
+
+    // ----------- LOAD MIND -----------
+    mindBtn.onclick = () => mindFile.click();
+
+    mindFile.onchange = async () => {
+      const file = mindFile.files[0];
+      if (!file) return;
+
+      addMessage(tr("mindLoading"), "bot");
+      const fd = new FormData();
+      fd.append("mind", file);
+
+      try {
+        const res = await fetch(LOAD_MIND_ENDPOINT, { method: "POST", body: fd });
+        if (!res.ok) throw new Error(await res.text());
+
+        addMessage(tr("mindSuccess"), "bot");
+        mindBtn.classList.add("ok");
+        setTimeout(() => mindBtn.classList.remove("ok"), 3000);
+      } catch (err) {
+        addMessage(tr("mindError") + String(err), "bot");
+      } finally {
+        mindFile.value = "";
+      }
+    };
+
+    // ----------- UI: toggle config -----------
+    toggleKeyBtn.onclick = () => {
+      const show = (configRow.style.display === "none");
+      configRow.style.display = show ? "flex" : "none";
+      if (show) apiKeyInput.focus();
+    };
+
+    // --- INICIALIZAÇÃO ---
+    addMessage(tr("welcome"), "bot");
+    mindBtn.setAttribute('data-i18n-title', 'mindTitle');
+    mindBtn.title = translations[currentLang].mindTitle;
+    input.focus();
+    loadKeyFromSession();
+  </script>
+</body>
+</html>

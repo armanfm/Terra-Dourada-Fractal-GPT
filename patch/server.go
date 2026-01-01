@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -22,11 +21,14 @@ import (
 // DTOs
 // =====================
 
+type AskRequest struct {
+	Question string `json:"question"`
+}
+
 type AskResponse struct {
-	Answer string `json:"answer"`
-	Recall string `json:"recall"`
-	Mode   string `json:"mode"`
-	Tokens int    `json:"tokens"`
+	Recall       string `json:"recall"`
+	QuestionCore string `json:"question_core"`
+	Mode         string `json:"mode"`
 }
 
 type LoadMindResponse struct {
@@ -36,45 +38,8 @@ type LoadMindResponse struct {
 }
 
 // =====================
-// Gemini DTO
-// =====================
-
-type geminiResp struct {
-	Candidates []struct {
-		Content struct {
-			Parts []struct {
-				Text string `json:"text"`
-			} `json:"parts"`
-		} `json:"content"`
-	} `json:"candidates"`
-	UsageMetadata struct {
-		TotalTokenCount int `json:"totalTokenCount"`
-	} `json:"usageMetadata"`
-}
-
-// =====================
 // Helpers
 // =====================
-
-func envInt(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		var i int
-		if _, err := fmt.Sscanf(v, "%d", &i); err == nil {
-			return i
-		}
-	}
-	return def
-}
-
-func envFloat(key string, def float64) float64 {
-	if v := os.Getenv(key); v != "" {
-		var f float64
-		if _, err := fmt.Sscanf(v, "%f", &f); err == nil {
-			return f
-		}
-	}
-	return def
-}
 
 func mustCwd() string {
 	wd, err := os.Getwd()
@@ -102,21 +67,6 @@ func firstExisting(paths ...string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func cleanAPIKey(k string) string {
-	k = strings.TrimSpace(k)
-	k = strings.Trim(k, "\"")
-	k = strings.Trim(k, "'")
-	return strings.TrimSpace(k)
-}
-
-func normalizeModelName(m string) string {
-	m = strings.TrimSpace(m)
-	m = strings.TrimPrefix(m, "models/")
-	m = strings.TrimSuffix(m, ":generateContent")
-	m = strings.TrimSuffix(m, ":streamGenerateContent")
-	return m
 }
 
 // =====================
@@ -158,18 +108,13 @@ var listaB = []string{
 	"is it possible",
 }
 
-// ordena por tamanho desc p/ casar o maior primeiro (determinístico)
 var listaBSorted = func() []string {
 	cp := append([]string{}, listaB...)
-	sort.SliceStable(cp, func(i, j int) bool {
-		return len(cp[i]) > len(cp[j])
-	})
+	sort.SliceStable(cp, func(i, j int) bool { return len(cp[i]) > len(cp[j]) })
 	return cp
 }()
 
 func splitSentences(text string) []string {
-	// Split determinístico por delimitadores de frase.
-	// Não recorta palavras; só separa sentenças.
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
 
@@ -215,7 +160,6 @@ func normalizeToken(tok string) string {
 	tok = strings.ToLower(tok)
 	tok = strings.TrimSpace(tok)
 	tok = strings.Trim(tok, " \t\n\r.,!?;:\"'`´()[]{}<>|/\\")
-	// remove apóstrofos internos comuns p/ reduzir ruído
 	tok = strings.ReplaceAll(tok, "'", "")
 	tok = strings.ReplaceAll(tok, "’", "")
 	tok = strings.ReplaceAll(tok, "´", "")
@@ -240,7 +184,6 @@ func tokensOrderedUnique(s string) []string {
 	return out
 }
 
-// pega o que existe em A que NÃO existe em B (ordem preservada, único)
 func diffTokens(prev, curr string) string {
 	a := tokensOrderedUnique(prev)
 	b := tokensOrderedUnique(curr)
@@ -273,7 +216,6 @@ func findListaBMatch(sentence string) (int, string) {
 		if i < 0 {
 			continue
 		}
-		// escolhe o match mais à esquerda; em empate, o maior
 		if bestIdx == -1 || i < bestIdx || (i == bestIdx && len(k) > len(bestKey)) {
 			bestIdx = i
 			bestKey = k
@@ -282,8 +224,6 @@ func findListaBMatch(sentence string) (int, string) {
 	return bestIdx, bestKey
 }
 
-// Reconstrói SOMENTE a frase B:
-// B := (prefixo até fim do gatilho ListaB) + " " + (tokens de A que não estão em B) + " " + (resto da B)
 func rebuildListaB(prevA, currB string) string {
 	currB = strings.TrimSpace(currB)
 	d := diffTokens(prevA, currB)
@@ -293,7 +233,6 @@ func rebuildListaB(prevA, currB string) string {
 
 	idx, key := findListaBMatch(currB)
 	if idx < 0 || key == "" {
-		// fallback determinístico: injeta no final
 		if strings.Contains(currB, "?") {
 			return strings.TrimSpace(currB + " " + d)
 		}
@@ -302,7 +241,6 @@ func rebuildListaB(prevA, currB string) string {
 
 	insertPos := idx + len(key)
 	if insertPos < 0 || insertPos > len(currB) {
-		// paranoia de bounds (não deve acontecer)
 		if strings.Contains(currB, "?") {
 			return strings.TrimSpace(currB + " " + d)
 		}
@@ -316,17 +254,12 @@ func rebuildListaB(prevA, currB string) string {
 		return strings.TrimSpace(prefix + " " + d + " " + rest)
 	}
 
-	// se não tinha resto, garante ? se B não tinha
 	if strings.Contains(currB, "?") {
 		return strings.TrimSpace(prefix + " " + d)
 	}
 	return strings.TrimSpace(prefix + " " + d + "?")
 }
 
-// extractQuestionCore:
-// - 1) Encontra a PRIMEIRA frase que contém Lista A e retorna essa + as seguintes.
-// - 2) Se não existir Lista A, usa Lista B reconstruindo SOMENTE B com diff vindo de A (frase anterior).
-// - 3) Se nada, retorna "".
 func extractQuestionCore(text string) string {
 	sentences := splitSentences(text)
 
@@ -339,7 +272,6 @@ func extractQuestionCore(text string) string {
 	for i, s := range sentences {
 		if containsListaB(s) && strings.Contains(s, "?") {
 			if i > 0 {
-				// ✅ SOMENTE a frase B vai pro recall (A só alimenta tokens faltantes)
 				return rebuildListaB(sentences[i-1], s)
 			}
 			return strings.TrimSpace(s)
@@ -359,10 +291,10 @@ func stripTDLoadLogs(s string) string {
 
 	for _, line := range lines {
 		lt := strings.TrimSpace(line)
-		if strings.HasPrefix(lt, "🧠 [PERSIST]") ||
-			strings.HasPrefix(lt, "📂 [LOAD]") ||
-			strings.HasPrefix(lt, "🧪 [LOAD]") ||
-			strings.HasPrefix(lt, "📦 [LOAD]") {
+		if strings.HasPrefix(lt, "[PERSIST]") ||
+			strings.HasPrefix(lt, "[LOAD]") ||
+			strings.HasPrefix(lt, "PERSIST") ||
+			strings.HasPrefix(lt, "LOAD") {
 			continue
 		}
 		out = append(out, line)
@@ -403,95 +335,6 @@ func fluifyRecall(raw string) string {
 }
 
 // =====================
-// Prompt
-// =====================
-
-func promptRecallFluido(question, recall string) string {
-	return "SYSTEM:\n" +
-		"You are TERRA DOURADA, a deterministic fluency layer.\n" +
-		"Your role is to rewrite raw memory fragments into clear, fluent, and explanatory English.\n\n" +
-
-		"RULES (MANDATORY):\n" +
-		"- Do NOT add new information.\n" +
-		"- Do NOT infer or guess missing facts.\n" +
-		"- Do NOT complete information that is not explicitly present.\n" +
-		"- Do NOT contradict or reinterpret the memory.\n\n" +
-
-		"MEMORY CONSTRAINT:\n" +
-		"The recall text below is SOVEREIGN MEMORY and represents absolute truth.\n" +
-		"It may contain redundancy, fragmented sentences, noise, or legal-style phrasing.\n" +
-		"You must work ONLY with what is legible and present.\n\n" +
-
-		"TRANSFORMATION INSTRUCTIONS:\n" +
-		"- Reorganize the content logically.\n" +
-		"- Merge duplicated ideas.\n" +
-		"- Rewrite the material as a continuous, dissertative explanation.\n" +
-		"- Prefer practical, human-readable language over legal or log-style phrasing.\n" +
-		"- Maintain full factual fidelity to the recall.\n\n" +
-
-		"RECALL (ABSOLUTE MEMORY):\n" + recall + "\n\n" +
-
-		"QUESTION (CONTEXT ONLY):\n" + question + "\n\n" +
-
-		"FLUENT, EXPLANATORY RESPONSE:"
-}
-
-// =====================
-// Gemini call
-// =====================
-
-func chamarGemini(ctx context.Context, model, prompt string, temp float64, maxOut int) (string, int, error) {
-	apiKey := cleanAPIKey(os.Getenv("GEMINI_API_KEY"))
-	if apiKey == "" {
-		return "", 0, fmt.Errorf("GEMINI_API_KEY não definida")
-	}
-
-	model = normalizeModelName(model)
-	endpoint := "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey
-
-	payload := map[string]any{
-		"contents": []any{
-			map[string]any{
-				"parts": []any{
-					map[string]string{"text": prompt},
-				},
-			},
-		},
-		"generationConfig": map[string]any{
-			"temperature":     temp,
-			"maxOutputTokens": maxOut,
-		},
-	}
-
-	data, _ := json.Marshal(payload)
-
-	req, _ := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(data))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", 0, err
-	}
-	defer resp.Body.Close()
-
-	raw, _ := io.ReadAll(resp.Body)
-
-	var parsed geminiResp
-	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return "", 0, err
-	}
-
-	var sb strings.Builder
-	if len(parsed.Candidates) > 0 {
-		for _, p := range parsed.Candidates[0].Content.Parts {
-			sb.WriteString(p.Text)
-		}
-	}
-
-	return strings.TrimSpace(sb.String()), parsed.UsageMetadata.TotalTokenCount, nil
-}
-
-// =====================
 // Mind management
 // =====================
 
@@ -519,13 +362,6 @@ func getLoadedMind() string {
 
 func main() {
 	projectRoot := mustCwd()
-	maxOut := envInt("TD_MAX_OUT", 2048)
-	temp := envFloat("TD_FLUENT_TEMP", 0.4)
-
-	model := os.Getenv("GEMINI_MODEL")
-	if model == "" {
-		model = "gemini-3-flash-preview"
-	}
 
 	sfx := exeSuffix()
 	recallBin, okRecall := firstExisting(
@@ -533,7 +369,6 @@ func main() {
 		filepath.Join(projectRoot, "recall_terra_dourada"+sfx),
 	)
 
-	// ---------- ROTA /
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -542,78 +377,86 @@ func main() {
 		http.ServeFile(w, r, filepath.Join(projectRoot, "index.html"))
 	})
 
-	// ---------- LOAD MIND
 	http.HandleFunc("/load_mind", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
 		_ = r.ParseMultipartForm(64 << 20)
 		mf, _, err := r.FormFile("mind")
 		if err != nil {
-			http.Error(w, "arquivo não enviado", 400)
+			http.Error(w, "arquivo nao enviado", 400)
 			return
 		}
 		defer mf.Close()
 
-		tmp, _ := os.CreateTemp("", "td_mind_*.bin")
+		tmp, err := os.CreateTemp("", "td_mind_*.bin")
+		if err != nil {
+			http.Error(w, "falha ao criar temp", 500)
+			return
+		}
 		n, _ := io.Copy(tmp, mf)
 		_ = tmp.Close()
 
 		setLoadedMind(tmp.Name())
+
+		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(LoadMindResponse{Ok: true, Size: n, Mode: "loaded"})
 	})
 
-	// ---------- ASK
 	http.HandleFunc("/ask", func(w http.ResponseWriter, r *http.Request) {
-		var p struct {
-			Question string `json:"question"`
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
 		}
+
+		var p AskRequest
 		_ = json.NewDecoder(r.Body).Decode(&p)
 
 		rawQuestion := strings.TrimSpace(p.Question)
 		questionCore := extractQuestionCore(rawQuestion)
 		if questionCore == "" {
-			// Sem núcleo detectável: mantém comportamento antigo (não quebra).
 			questionCore = rawQuestion
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
-		defer cancel()
-
-		recall := ""
 		mode := "vazio"
+		recall := ""
 
-		if okRecall && getLoadedMind() != "" && strings.TrimSpace(questionCore) != "" {
+		if rawQuestion == "" {
+			mode = "empty_question"
+		} else if !okRecall {
+			mode = "recall_bin_missing"
+		} else if strings.TrimSpace(getLoadedMind()) == "" {
+			mode = "mind_not_loaded"
+		} else if strings.TrimSpace(questionCore) == "" {
+			mode = "empty_core"
+		} else {
+			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+			defer cancel()
+
 			var out bytes.Buffer
-			// ✅ Recall recebe só a pergunta (núcleo) — e na Lista B, é SOMENTE B reconstruída
 			cmd := exec.CommandContext(ctx, recallBin, questionCore)
 			cmd.Env = append(os.Environ(), "TD_MIND_PATH="+getLoadedMind())
 			cmd.Stdout = &out
 			_ = cmd.Run()
 
 			recall = fluifyRecall(stripTDLoadLogs(out.String()))
-			mode = "recall_raw"
-		}
-
-		answer := recall
-		tokens := 0
-
-		if recall != "" {
-			// ✅ Gemini continua recebendo o texto inteiro (rawQuestion)
-			prompt := promptRecallFluido(rawQuestion, recall)
-			resp, tk, err := chamarGemini(ctx, model, prompt, temp, maxOut)
-			if err == nil && resp != "" {
-				answer = resp
-				tokens = tk
-				mode = "recall_fluido"
+			if recall == "" {
+				mode = "recall_empty"
+			} else {
+				mode = "recall_raw"
 			}
 		}
 
+		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(AskResponse{
-			Answer: answer,
-			Recall: recall,
-			Mode:   mode,
-			Tokens: tokens,
+			Recall:       recall,
+			QuestionCore: questionCore,
+			Mode:         mode,
 		})
 	})
 
-	log.Printf("🚀 Server rodando em http://localhost:8080")
+	log.Printf("Server running at http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

@@ -1,6 +1,5 @@
 
-<img width="333" height="222" alt="image" src="https://github.com/user-attachments/assets/d12a7321-a432-42a1-a93c-dd305178b106" />
-
+<img width="1280" height="720" alt="image" src="https://github.com/user-attachments/assets/246d60cc-d4d6-48a1-b31b-1c719d75a936" />
 
 # Terra-Dourada-Fractal-GPT
 

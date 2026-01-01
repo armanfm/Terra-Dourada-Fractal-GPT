@@ -1,3 +1,7 @@
+
+<img width="333" height="222" alt="image" src="https://github.com/user-attachments/assets/d12a7321-a432-42a1-a93c-dd305178b106" />
+
+
 # Terra-Dourada-Fractal-GPT
 
 Terra Dourada is a deterministic semantic memory engine that performs recall **without embeddings** or external recall models.  

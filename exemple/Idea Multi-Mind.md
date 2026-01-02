@@ -129,7 +129,6 @@ Same pipeline. Different expert.
 
 ---
 
-### README one-liner (if you want it short)
 **“Terra Dourada supports Modular RAG via multiple `mind.bin` knowledge bases. FXL Turbo deterministically routes each query to the correct topic-mind (or blocks on mismatch) and prompts the LLM only with a minimal stable excerpt.”**
 
 ---

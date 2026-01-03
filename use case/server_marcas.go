@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -11,16 +11,15 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"unicode/utf8"
 )
 
-//
 // =====================
 // API DTOs
 // =====================
-//
 
 type LoadDBResponse struct {
 	Ok          bool   `json:"ok"`
@@ -33,6 +32,7 @@ type LoadDBResponse struct {
 
 type CheckBrandRequest struct {
 	Brand string `json:"brand"`
+	TopN  int    `json:"top_n"`
 }
 
 type CheckBrandResponse struct {
@@ -41,41 +41,41 @@ type CheckBrandResponse struct {
 	Error  string       `json:"error,omitempty"`
 }
 
-//
-// =====================
-// Report (SEM score / SEM média)
-// - escolhe o candidato cujo max(BytesPct, Sha256Pct) é o maior
-// - retorna APENAS nome + bytes_pct + sha256_pct do vencedor
-// =====================
-//
-
-type BestMatch struct {
+type Candidate struct {
 	Nome      string  `json:"nome"`
 	BytesPct  float64 `json:"bytes_pct"`
 	Sha256Pct float64 `json:"sha256_pct"`
+	WinnerPct float64 `json:"winner_pct"`
+	Sha256Hex string  `json:"sha256_hex"`
 }
 
 type CheckResult struct {
-	Query       string     `json:"query"`
-	TotalMarcas int        `json:"total_marcas"`
-	BinPath     string     `json:"bin_path"`
-	DecodeMode  string     `json:"decode_mode"`
-	Best        *BestMatch `json:"best,omitempty"`
-	Message     string     `json:"message"`
+	Query       string      `json:"query"`
+	TotalMarcas int         `json:"total_marcas"`
+	BinPath     string      `json:"bin_path"`
+	DecodeMode  string      `json:"decode_mode"`
+	Best        *Candidate  `json:"best,omitempty"`
+	Top         []Candidate `json:"top,omitempty"`
+	Message     string      `json:"message"`
 }
 
-//
 // =====================
 // State
 // =====================
-//
+
+type dbEntry struct {
+	Name      string
+	BitsText  []byte
+	BitsHash  []byte
+	Sha256Hex string
+}
 
 var dbMu sync.RWMutex
 var loadedDBPath string
-var loadedNames []string
+var loadedEntries []dbEntry
 var loadedDecodeMode string
 
-func setLoadedDB(path string, names []string, decodeMode string) {
+func setLoadedDB(path string, entries []dbEntry, decodeMode string) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 
@@ -83,70 +83,35 @@ func setLoadedDB(path string, names []string, decodeMode string) {
 		_ = os.Remove(loadedDBPath)
 	}
 	loadedDBPath = path
-	loadedNames = names
+	loadedEntries = entries
 	loadedDecodeMode = decodeMode
 }
 
-func getLoadedDB() (path string, names []string, decodeMode string) {
+func getLoadedDB() (path string, entries []dbEntry, decodeMode string) {
 	dbMu.RLock()
 	defer dbMu.RUnlock()
 
 	path = loadedDBPath
 	decodeMode = loadedDecodeMode
-	if loadedNames == nil {
+
+	if loadedEntries == nil {
 		return path, nil, decodeMode
 	}
-	cp := make([]string, len(loadedNames))
-	copy(cp, loadedNames)
+	cp := make([]dbEntry, len(loadedEntries))
+	copy(cp, loadedEntries)
 	return path, cp, decodeMode
 }
 
-//
 // =====================
-// Canonicalização: REMOVER ACENTOS (só para comparar)
-// - NÃO muda o nome original retornado
+// Similarity (Bytes + SHA256 lossy) - SEM normalizar
 // =====================
-//
 
-var accentReplacer = strings.NewReplacer(
-	// a
-	"á", "a", "à", "a", "â", "a", "ã", "a", "ä", "a", "å", "a",
-	"Á", "A", "À", "A", "Â", "A", "Ã", "A", "Ä", "A", "Å", "A",
-	// e
-	"é", "e", "è", "e", "ê", "e", "ë", "e",
-	"É", "E", "È", "E", "Ê", "E", "Ë", "E",
-	// i
-	"í", "i", "ì", "i", "î", "i", "ï", "i",
-	"Í", "I", "Ì", "I", "Î", "I", "Ï", "I",
-	// o
-	"ó", "o", "ò", "o", "ô", "o", "õ", "o", "ö", "o",
-	"Ó", "O", "Ò", "O", "Ô", "O", "Õ", "O", "Ö", "O",
-	// u
-	"ú", "u", "ù", "u", "û", "u", "ü", "u",
-	"Ú", "U", "Ù", "U", "Û", "U", "Ü", "U",
-	// c
-	"ç", "c", "Ç", "C",
-	// n (p/ espanhol/nomes)
-	"ñ", "n", "Ñ", "N",
-	// y
-	"ý", "y", "ÿ", "y",
-	"Ý", "Y",
-)
-
-func stripAccents(s string) string {
-	// remove acentos, mantendo o resto intacto (inclusive caixa/case)
-	return accentReplacer.Replace(s)
-}
-
-//
-// =====================
-// Similarity (Bytes + SHA256 lossy, igual seu estilo)
-// =====================
-//
+const maxBits = 128
 
 func stringParaBits(texto string, maxBits int) []byte {
 	bits := make([]byte, 0, maxBits)
 	b := []byte(texto)
+
 	for _, by := range b {
 		for i := 7; i >= 0; i-- {
 			bits = append(bits, byte((by>>uint(i))&1))
@@ -155,6 +120,7 @@ func stringParaBits(texto string, maxBits int) []byte {
 			}
 		}
 	}
+
 	for len(bits) < maxBits {
 		bits = append(bits, 0)
 	}
@@ -178,16 +144,11 @@ func similaridadeBits(a, b []byte) float64 {
 	return float64(iguais) / float64(k)
 }
 
-func similaridadeBytes(a, b string) float64 {
-	ba := stringParaBits(a, 128)
-	bb := stringParaBits(b, 128)
-	return similaridadeBits(ba, bb)
-}
-
 // igual Rust: String::from_utf8_lossy(&hash_bytes)
 func utf8LossyString(b []byte) string {
 	var sb strings.Builder
 	sb.Grow(len(b))
+
 	for len(b) > 0 {
 		r, size := utf8.DecodeRune(b)
 		if r == utf8.RuneError && size == 1 {
@@ -201,428 +162,217 @@ func utf8LossyString(b []byte) string {
 	return sb.String()
 }
 
-func similaridadeSHA256(a, b string) float64 {
-	ha := sha256.Sum256([]byte(a))
-	hb := sha256.Sum256([]byte(b))
-
-	sa := utf8LossyString(ha[:])
-	sb := utf8LossyString(hb[:])
-
-	ba := stringParaBits(sa, 128)
-	bb := stringParaBits(sb, 128)
-
-	return similaridadeBits(ba, bb)
+func bitsHashOf(texto string) []byte {
+	h := sha256.Sum256([]byte(texto))
+	los := utf8LossyString(h[:])
+	return stringParaBits(los, maxBits)
 }
 
-//
 // =====================
-// Core (REGRA QUE VOCÊ MANDOU)
-// - remove acento SOMENTE para comparar
-// - winnerMetric = max(BytesPct, Sha256Pct)
-// - retorna as DUAS métricas do vencedor (bytes + sha)
+// Core: escolhe vencedor por max(BytesPct, Sha256Pct)
 // =====================
-//
 
-func checkBrand(query string, names []string, binPath string, decodeMode string) CheckResult {
-	var best *BestMatch
-	var bestWinner float64
+func checkBrand(query string, entries []dbEntry, binPath string, decodeMode string, topN int) CheckResult {
+	qBits := stringParaBits(query, maxBits)
+	qHashBits := bitsHashOf(query)
 
-	// ✅ comparar usando versões sem acento
-	qCmp := stripAccents(query)
+	bestWinner := -1.0
+	var best *Candidate
+	top := make([]Candidate, 0, 16)
 
-	for _, nm := range names {
-		nCmp := stripAccents(nm)
+	for _, e := range entries {
+		bytesPct := similaridadeBits(qBits, e.BitsText) * 100.0
+		shaPct := similaridadeBits(qHashBits, e.BitsHash) * 100.0
 
-		bytesPct := similaridadeBytes(qCmp, nCmp) * 100.0
-		shaPct := similaridadeSHA256(qCmp, nCmp) * 100.0
-
-		winnerMetric := bytesPct
-		if shaPct > winnerMetric {
-			winnerMetric = shaPct
+		winner := bytesPct
+		if shaPct > winner {
+			winner = shaPct
 		}
 
-		if best == nil || winnerMetric > bestWinner {
-			bestWinner = winnerMetric
-			best = &BestMatch{
-				Nome:      nm, // ✅ retorna ORIGINAL
-				BytesPct:  bytesPct,
-				Sha256Pct: shaPct,
-			}
+		c := Candidate{
+			Nome:      e.Name,
+			BytesPct:  bytesPct,
+			Sha256Pct: shaPct,
+			WinnerPct: winner,
+			Sha256Hex: e.Sha256Hex,
 		}
+
+		if best == nil || winner > bestWinner {
+			bestWinner = winner
+			tmp := c
+			best = &tmp
+		}
+
+		top = append(top, c)
+	}
+
+	sort.Slice(top, func(i, j int) bool {
+		if top[i].WinnerPct != top[j].WinnerPct {
+			return top[i].WinnerPct > top[j].WinnerPct
+		}
+		if top[i].BytesPct != top[j].BytesPct {
+			return top[i].BytesPct > top[j].BytesPct
+		}
+		if top[i].Sha256Pct != top[j].Sha256Pct {
+			return top[i].Sha256Pct > top[j].Sha256Pct
+		}
+		return top[i].Nome < top[j].Nome
+	})
+
+	if topN <= 0 {
+		topN = 5
+	}
+	if topN > 25 {
+		topN = 25
+	}
+	if len(top) > topN {
+		top = top[:topN]
 	}
 
 	msg := "Métricas calculadas. Nenhuma decisão aplicada."
-	if best == nil {
+	if len(entries) == 0 {
 		msg = "Nenhuma marca no banco."
 	}
 
 	return CheckResult{
 		Query:       query,
-		TotalMarcas: len(names),
+		TotalMarcas: len(entries),
 		BinPath:     binPath,
 		DecodeMode:  decodeMode,
 		Best:        best,
+		Top:         top,
 		Message:     msg,
 	}
 }
 
-//
 // =====================
-// marcas.bin loader (ROBUSTO + CORREÇÃO)
-// - scan de offsets até 4096 (não 256)
-// - extractASCIIStrings aceita apóstrofo ' (para McDonald's não quebrar)
-// - sem filterCandidate (só trim+dedupe)
+// TERRAMIN loader (estrito)
 // =====================
-//
 
-type binReader struct {
-	b []byte
-	i int
-}
+// header: "TERRAMIN"(8) + u32 + 4*f64 + 3*u32 + 2*u64 = 72 bytes
+// depois: sig32 = sha256(header + payload)
+// payload records: [u32 len][utf8 text][4*f64][u64 ts]
 
-func (r *binReader) remaining() int { return len(r.b) - r.i }
+var errInvalidTerramin = errors.New("bin inválido (esperado TERRAMIN + assinatura SHA256 válida)")
 
-func (r *binReader) readU64LE() (uint64, bool) {
-	if r.remaining() < 8 {
-		return 0, false
+func parseTerraminWithHeaderLen(data []byte, headerLen int) ([]dbEntry, error) {
+	if len(data) < headerLen+32 {
+		return nil, errInvalidTerramin
 	}
-	v := binary.LittleEndian.Uint64(r.b[r.i : r.i+8])
-	r.i += 8
-	return v, true
-}
+	if string(data[:8]) != "TERRAMIN" {
+		return nil, errInvalidTerramin
+	}
 
-func (r *binReader) readVarU64() (uint64, bool) {
-	v, n := binary.Uvarint(r.b[r.i:])
-	if n <= 0 {
-		return 0, false
-	}
-	r.i += n
-	return v, true
-}
+	header := data[:headerLen]
+	sig := data[headerLen : headerLen+32]
+	payload := data[headerLen+32:]
 
-func (r *binReader) readBytes(n int) ([]byte, bool) {
-	if n < 0 || r.remaining() < n {
-		return nil, false
+	// assinatura: sha256(header + payload)
+	h := sha256.New()
+	_, _ = h.Write(header)
+	_, _ = h.Write(payload)
+	sum := h.Sum(nil)
+	if !bytesEqual(sum, sig) {
+		return nil, errInvalidTerramin
 	}
-	out := r.b[r.i : r.i+n]
-	r.i += n
-	return out, true
-}
 
-func looksReasonableCount(cnt uint64, remaining int) bool {
-	if cnt == 0 {
-		return true
-	}
-	if cnt > 1_000_000 {
-		return false
-	}
-	if int(cnt) > remaining {
-		return false
-	}
-	return true
-}
-
-func readBincodeStringFixint(r *binReader) (string, bool) {
-	n, ok := r.readU64LE()
-	if !ok {
-		return "", false
-	}
-	if n > uint64(r.remaining()) || n > 1_000_000 {
-		return "", false
-	}
-	b, ok := r.readBytes(int(n))
-	if !ok || !utf8.Valid(b) {
-		return "", false
-	}
-	return string(b), true
-}
-
-func readBincodeStringVarint(r *binReader) (string, bool) {
-	n, ok := r.readVarU64()
-	if !ok {
-		return "", false
-	}
-	if n > uint64(r.remaining()) || n > 1_000_000 {
-		return "", false
-	}
-	b, ok := r.readBytes(int(n))
-	if !ok || !utf8.Valid(b) {
-		return "", false
-	}
-	return string(b), true
-}
-
-// Vec<Marca> fixint: [u64 cnt][String nome][String hash][u64 data][String tx]...
-func tryVecMarcaFixint(payload []byte) ([]string, bool) {
-	r := &binReader{b: payload}
-	cnt, ok := r.readU64LE()
-	if !ok || !looksReasonableCount(cnt, r.remaining()) {
-		return nil, false
-	}
-	out := make([]string, 0, cnt)
-	for i := uint64(0); i < cnt; i++ {
-		nome, ok := readBincodeStringFixint(r)
-		if !ok {
-			return nil, false
-		}
-		if _, ok := readBincodeStringFixint(r); !ok { // hash
-			return nil, false
-		}
-		if _, ok := r.readU64LE(); !ok { // data
-			return nil, false
-		}
-		if _, ok := readBincodeStringFixint(r); !ok { // tx
-			return nil, false
-		}
-		out = append(out, nome)
-	}
-	return out, true
-}
-
-// Vec<Marca> varint
-func tryVecMarcaVarint(payload []byte) ([]string, bool) {
-	r := &binReader{b: payload}
-	cnt, ok := r.readVarU64()
-	if !ok || !looksReasonableCount(cnt, r.remaining()) {
-		return nil, false
-	}
-	out := make([]string, 0, cnt)
-	for i := uint64(0); i < cnt; i++ {
-		nome, ok := readBincodeStringVarint(r)
-		if !ok {
-			return nil, false
-		}
-		if _, ok := readBincodeStringVarint(r); !ok { // hash
-			return nil, false
-		}
-		if _, ok := r.readVarU64(); !ok { // data
-			return nil, false
-		}
-		if _, ok := readBincodeStringVarint(r); !ok { // tx
-			return nil, false
-		}
-		out = append(out, nome)
-	}
-	return out, true
-}
-
-// Vec<String> fixint
-func tryVecStringFixint(payload []byte) ([]string, bool) {
-	r := &binReader{b: payload}
-	cnt, ok := r.readU64LE()
-	if !ok || !looksReasonableCount(cnt, r.remaining()) {
-		return nil, false
-	}
-	out := make([]string, 0, cnt)
-	for i := uint64(0); i < cnt; i++ {
-		s, ok := readBincodeStringFixint(r)
-		if !ok {
-			return nil, false
-		}
-		out = append(out, s)
-	}
-	return out, true
-}
-
-// Vec<String> varint
-func tryVecStringVarint(payload []byte) ([]string, bool) {
-	r := &binReader{b: payload}
-	cnt, ok := r.readVarU64()
-	if !ok || !looksReasonableCount(cnt, r.remaining()) {
-		return nil, false
-	}
-	out := make([]string, 0, cnt)
-	for i := uint64(0); i < cnt; i++ {
-		s, ok := readBincodeStringVarint(r)
-		if !ok {
-			return nil, false
-		}
-		out = append(out, s)
-	}
-	return out, true
-}
-
-func cleanNames(in []string) []string {
 	seen := map[string]bool{}
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		s = strings.TrimSpace(s)
-		if s == "" {
+	out := make([]dbEntry, 0, 1024)
+
+	i := 0
+	for {
+		if i == len(payload) {
+			break
+		}
+		if i+4 > len(payload) {
+			return nil, errInvalidTerramin
+		}
+
+		n := int(binary.LittleEndian.Uint32(payload[i : i+4]))
+		i += 4
+
+		if n <= 0 || n > 1_000_000 || i+n > len(payload) {
+			return nil, errInvalidTerramin
+		}
+
+		txtBytes := payload[i : i+n]
+		i += n
+
+		if !utf8.Valid(txtBytes) {
+			return nil, errInvalidTerramin
+		}
+
+		// pular 4*f64 + u64
+		if i+40 > len(payload) {
+			return nil, errInvalidTerramin
+		}
+		i += 40
+
+		name := strings.TrimSpace(string(txtBytes))
+		if name == "" {
 			continue
 		}
-		if len(s) > 200 {
+		if strings.HasPrefix(name, "#") || strings.HasPrefix(name, "//") {
 			continue
 		}
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
-func extractASCIIStrings(data []byte) []string {
-	seen := map[string]bool{}
-	out := []string{}
-
-	var sb strings.Builder
-	flush := func() {
-		if sb.Len() == 0 {
-			return
-		}
-		s := strings.TrimSpace(sb.String())
-		sb.Reset()
-		if s == "" {
-			return
-		}
-		if len(s) > 200 {
-			return
-		}
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
-	}
-
-	for i := 0; i < len(data); i++ {
-		c := data[i]
-		if (c >= 'a' && c <= 'z') ||
-			(c >= 'A' && c <= 'Z') ||
-			(c >= '0' && c <= '9') ||
-			c == ' ' || c == '-' || c == '_' || c == '.' || c == '&' ||
-			c == '+' || c == '/' || c == '\'' { // ✅ apóstrofo para McDonald's
-			sb.WriteByte(c)
-			if sb.Len() > 240 {
-				flush()
-			}
+		if len(name) > 200 {
 			continue
 		}
-		flush()
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+
+		hname := sha256.Sum256([]byte(name))
+		out = append(out, dbEntry{
+			Name:      name,
+			BitsText:  stringParaBits(name, maxBits),
+			BitsHash:  bitsHashOf(name),
+			Sha256Hex: hex.EncodeToString(hname[:]),
+		})
 	}
-	flush()
-	return out
+
+	if len(out) == 0 {
+		return nil, errInvalidTerramin
+	}
+	return out, nil
 }
 
-type decodeCandidate struct {
-	names      []string
-	mode       string
-	scoreNames int
-}
-
-func decodeAt(payload []byte) *decodeCandidate {
-	if names, ok := tryVecMarcaFixint(payload); ok && len(names) > 0 {
-		n := cleanNames(names)
-		if len(n) > 0 {
-			return &decodeCandidate{names: n, mode: "bincode_vec_marca_fixint", scoreNames: len(n)}
-		}
-	}
-	if names, ok := tryVecMarcaVarint(payload); ok && len(names) > 0 {
-		n := cleanNames(names)
-		if len(n) > 0 {
-			return &decodeCandidate{names: n, mode: "bincode_vec_marca_varint", scoreNames: len(n)}
-		}
-	}
-	if names, ok := tryVecStringFixint(payload); ok && len(names) > 0 {
-		n := cleanNames(names)
-		if len(n) > 0 {
-			return &decodeCandidate{names: n, mode: "bincode_vec_string_fixint", scoreNames: len(n)}
-		}
-	}
-	if names, ok := tryVecStringVarint(payload); ok && len(names) > 0 {
-		n := cleanNames(names)
-		if len(n) > 0 {
-			return &decodeCandidate{names: n, mode: "bincode_vec_string_varint", scoreNames: len(n)}
-		}
-	}
-	return nil
-}
-
-func loadNamesFromFile(path string) ([]string, string, error) {
+func loadEntriesFromFile(path string) ([]dbEntry, string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, "", err
 	}
 	if len(data) == 0 {
-		return nil, "", errors.New("arquivo vazio")
+		return nil, "", errInvalidTerramin
 	}
 
-	// JSON array (opcional)
-	if bytes.HasPrefix(bytes.TrimSpace(data), []byte("[")) {
-		var arr []any
-		if err := json.Unmarshal(data, &arr); err == nil {
-			out := []string{}
-			for _, it := range arr {
-				switch v := it.(type) {
-				case string:
-					out = append(out, v)
-				case map[string]any:
-					if s, ok := v["nome"].(string); ok {
-						out = append(out, s)
-					}
-				}
-			}
-			out = cleanNames(out)
-			if len(out) > 0 {
-				return out, "json_array", nil
-			}
-		}
+	// tenta 72 (correto). se falhar, tenta 76 (compat)
+	if entries, err := parseTerraminWithHeaderLen(data, 72); err == nil {
+		return entries, "terramin_v1", nil
+	}
+	if entries, err := parseTerraminWithHeaderLen(data, 76); err == nil {
+		return entries, "terramin_v1_header76", nil
 	}
 
-	// Se começar com TERRAMIN, tentar offsets comuns primeiro
-	startOffsets := []int{0}
-	if len(data) >= 8 && bytes.Equal(data[:8], []byte("TERRAMIN")) {
-		startOffsets = []int{64, 32, 16, 12, 8, 0}
-	}
-
-	var best *decodeCandidate
-
-	// ✅ varre offsets 0..4096
-	maxScan := 4096
-	if len(data) < maxScan {
-		maxScan = len(data)
-	}
-
-	checked := map[int]bool{}
-	for _, off := range startOffsets {
-		if off >= 0 && off < len(data) {
-			checked[off] = true
-			if c := decodeAt(data[off:]); c != nil {
-				if best == nil || c.scoreNames > best.scoreNames {
-					best = c
-				}
-			}
-		}
-	}
-
-	for off := 0; off < maxScan; off++ {
-		if checked[off] {
-			continue
-		}
-		if c := decodeAt(data[off:]); c != nil {
-			if best == nil || c.scoreNames > best.scoreNames {
-				best = c
-			}
-		}
-	}
-
-	if best != nil && len(best.names) > 0 {
-		return best.names, best.mode, nil
-	}
-
-	// fallback: extrair ASCII (último recurso)
-	names := extractASCIIStrings(data)
-	if len(names) > 0 {
-		return cleanNames(names), "fallback_ascii_extract", nil
-	}
-
-	return nil, "", errors.New("nao consegui decodificar marcas.bin (TERRAMIN/bincode/json)")
+	return nil, "", errInvalidTerramin
 }
 
-//
+func bytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // =====================
 // HTTP server
 // =====================
-//
 
 func main() {
 	projectRoot, _ := os.Getwd()
@@ -638,13 +388,9 @@ func main() {
 			http.ServeFile(w, r, indexPath)
 			return
 		}
-		marcasPath := filepath.Join(projectRoot, "marcas.html")
-		if _, err := os.Stat(marcasPath); err == nil {
-			http.ServeFile(w, r, marcasPath)
-			return
-		}
 
-		http.Error(w, "Nao achei index.html nem marcas.html no diretorio do server.", http.StatusNotFound)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte("Coloque um index.html ao lado do server e abra / (ou use /load_marcas e /check_brand)."))
 	})
 
 	// POST /load_marcas (multipart field: "marcas")
@@ -657,45 +403,63 @@ func main() {
 		_ = r.ParseMultipartForm(64 << 20)
 		mf, _, err := r.FormFile("marcas")
 		if err != nil {
-			http.Error(w, "arquivo nao enviado (campo 'marcas')", http.StatusBadRequest)
+			writeJSON(w, http.StatusBadRequest, LoadDBResponse{
+				Ok:    false,
+				Mode:  "file_missing",
+				Error: "arquivo nao enviado (campo 'marcas')",
+			})
 			return
 		}
 		defer mf.Close()
 
 		tmp, err := os.CreateTemp("", "td_marcas_*.bin")
 		if err != nil {
-			http.Error(w, "falha ao criar temp: "+err.Error(), http.StatusInternalServerError)
+			writeJSON(w, http.StatusInternalServerError, LoadDBResponse{
+				Ok:    false,
+				Mode:  "temp_fail",
+				Error: "falha ao criar temp",
+			})
 			return
 		}
 
 		n, copyErr := io.Copy(tmp, mf)
 		_ = tmp.Close()
+
 		if copyErr != nil {
 			_ = os.Remove(tmp.Name())
-			http.Error(w, "falha ao salvar arquivo: "+copyErr.Error(), http.StatusInternalServerError)
+			writeJSON(w, http.StatusInternalServerError, LoadDBResponse{
+				Ok:    false,
+				Size:  n,
+				Mode:  "save_fail",
+				Error: "falha ao salvar arquivo",
+			})
 			return
 		}
 
-		names, decodeMode, derr := loadNamesFromFile(tmp.Name())
+		entries, decodeMode, derr := loadEntriesFromFile(tmp.Name())
 		if derr != nil {
 			_ = os.Remove(tmp.Name())
-			http.Error(w, "erro ao carregar marcas.bin: "+derr.Error(), http.StatusBadRequest)
+			writeJSON(w, http.StatusBadRequest, LoadDBResponse{
+				Ok:    false,
+				Size:  n,
+				Mode:  "bin_invalid",
+				Error: derr.Error(),
+			})
 			return
 		}
 
-		setLoadedDB(tmp.Name(), names, decodeMode)
+		setLoadedDB(tmp.Name(), entries, decodeMode)
 
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(LoadDBResponse{
+		writeJSON(w, http.StatusOK, LoadDBResponse{
 			Ok:          true,
 			Size:        n,
 			Mode:        "loaded",
-			TotalMarcas: len(names),
+			TotalMarcas: len(entries),
 			DecodeMode:  decodeMode,
 		})
 	})
 
-	// POST /check_brand  body: {"brand":"..."}
+	// POST /check_brand body: {"brand":"...", "top_n": 10}
 	http.HandleFunc("/check_brand", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -704,30 +468,28 @@ func main() {
 
 		var req CheckBrandRequest
 		_ = json.NewDecoder(r.Body).Decode(&req)
+
 		query := strings.TrimSpace(req.Brand)
 		if query == "" {
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(CheckBrandResponse{
+			writeJSON(w, http.StatusBadRequest, CheckBrandResponse{
 				Mode:  "empty_brand",
 				Error: "brand vazio",
 			})
 			return
 		}
 
-		path, names, decodeMode := getLoadedDB()
-		if path == "" || len(names) == 0 {
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(CheckBrandResponse{
+		path, entries, decodeMode := getLoadedDB()
+		if path == "" || len(entries) == 0 {
+			writeJSON(w, http.StatusBadRequest, CheckBrandResponse{
 				Mode:  "db_not_loaded",
 				Error: "marcas.bin nao carregado (use /load_marcas)",
 			})
 			return
 		}
 
-		report := checkBrand(query, names, path, decodeMode)
+		report := checkBrand(query, entries, path, decodeMode, req.TopN)
 
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(CheckBrandResponse{
+		writeJSON(w, http.StatusOK, CheckBrandResponse{
 			Mode:   "ok",
 			Report: &report,
 		})
@@ -735,4 +497,10 @@ func main() {
 
 	log.Printf("Server running at http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
 }

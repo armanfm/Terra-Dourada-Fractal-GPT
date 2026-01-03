@@ -1,492 +1,570 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Terra Dourada Brands</title>
   <style>
-    body{
-      background-color:#000000;color:#f5f5f5;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
-      display:flex;flex-direction:column;height:100vh;margin:0;padding:20px;box-sizing:border-box;
-      background-image: radial-gradient(circle at 20% 80%, rgba(218, 165, 32, 0.05) 0%, transparent 20%),
-                        radial-gradient(circle at 80% 20%, rgba(218, 165, 32, 0.05) 0%, transparent 20%);
+    :root{
+      --bg:#0b0f14;--card:#101826;--text:#e7eef7;--muted:#9bb0c4;
+      --accent:#6ee7b7;--danger:#fb7185;--line:rgba(255,255,255,.08);
+      --field:#0c1420;--fieldLine:rgba(255,255,255,.12);
+      --btnBg:rgba(110,231,183,.12);--btnLine:rgba(110,231,183,.35);
+      --warn:#fbbf24;
     }
-
-    .language-switcher {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      display: flex;
-      gap: 10px;
-      z-index: 100;
-      align-items: center;
-      flex-wrap: wrap;
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);}
+    .wrap{max-width:980px;margin:0 auto;padding:18px;}
+    h1{margin:0 0 12px;font-size:22px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+    label{font-size:12px;color:var(--muted);display:block;margin:0 0 6px}
+    input[type="text"],input[type="number"],input[type="password"],select{
+      background:var(--field);border:1px solid var(--fieldLine);color:var(--text);
+      border-radius:12px;padding:10px 12px;outline:none;box-sizing:border-box;
+      min-width:280px
     }
-
-    .lang-btn {
-      background: rgba(26, 26, 26, 0.8);
-      border: 1px solid #DAA520;
-      color: #DAA520;
-      padding: 8px 15px;
-      border-radius: 20px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
-      backdrop-filter: blur(5px);
-      user-select: none;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      justify-content:center;
-    }
-    .lang-btn.active { background: #DAA520; color: #000; font-weight: bold; }
-
-    .header { display:flex; align-items:center; justify-content:center; gap:20px; margin-bottom:20px; }
-    h1 { margin:0; text-align:center; color:#FFD700; font-size:2.2rem; letter-spacing:1.2px; }
-
-    .subtitle { text-align:center; color:#DAA520; margin-top:5px; margin-bottom:25px; font-size:1rem; opacity:0.9; }
-
-    #chat{
-      flex:1;background-color:#0a0a0a;border:2px solid #DAA520;border-radius:12px;
-      padding:20px;overflow-y:auto;margin-bottom:20px;display:flex;flex-direction:column;gap:15px;
-      box-shadow: 0 0 20px rgba(218, 165, 32, 0.3);
-    }
-
-    .msg{
-      max-width:85%;padding:12px 18px;border-radius:15px;line-height:1.5;word-wrap:break-word;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
-      white-space:pre-wrap;
-    }
-    .user{ align-self:flex-end;background:linear-gradient(135deg, #DAA520, #B8860B);color:#000;border-bottom-right-radius:3px; }
-    .bot{ align-self:flex-start;background-color:#1a1a1a;color:#f0f0f0;border-bottom-left-radius:3px; }
-
-    .controls{
-      display:flex;gap:15px;flex-wrap:wrap;align-items:center;
-      padding: 15px;
-      background-color: #0a0a0a;
-      border: 2px solid #DAA520;
-      border-radius: 12px;
-      box-shadow: 0 0 15px rgba(218, 165, 32, 0.1);
-    }
-
-    .input-container { flex:1; min-width:250px; }
-    input[type="text"], input[type="password"], input[type="number"], select{
-      width:100%;padding:14px 18px;border-radius:8px;border:1px solid #B8860B;
-      background-color:#111;color:#FFD700;outline:none;font-size:1rem; box-sizing:border-box;
-    }
-
+    input[type="number"]{min-width:120px}
+    input[type="password"]{min-width:360px}
+    select{min-width:220px}
     button{
-      padding:12px 24px;border:none;border-radius:8px;cursor:pointer;
-      font-weight:bold;transition:all 0.3s ease;font-size:0.95rem;
-      display:flex;align-items:center;gap:8px;justify-content:center;
-      user-select: none;
+      background:var(--btnBg);border:1px solid var(--btnLine);color:var(--text);
+      padding:10px 12px;border-radius:12px;cursor:pointer
     }
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .muted{color:var(--muted);font-size:13px}
+    .ok{color:var(--accent)}
+    .bad{color:var(--danger)}
+    .warn{color:var(--warn)}
+    pre{white-space:pre-wrap;background:var(--field);border:1px solid var(--line);padding:12px;border-radius:12px;margin:10px 0}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid var(--fieldLine);font-size:12px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr;gap:10px}
+    @media (min-width:900px){ .grid{grid-template-columns:1fr 1fr} }
 
-    #send{ background:linear-gradient(135deg, #DAA520, #B8860B);color:#000; border:1px solid #FFD700; }
-    #dbBtn{ background:linear-gradient(135deg, #1a1a1a, #2a2a2a);color:#FFD700; border:1px solid #B8860B; }
-    #toggleKeyBtn{ background:linear-gradient(135deg, #1a1a1a, #2a2a2a);color:#FFD700; border:1px solid #B8860B; padding:12px 18px; }
-    .ok{ background:linear-gradient(135deg, #2a7a2a, #3a9a3a) !important; color:#fff !important; border:none !important; }
-    #dbFile {display:none;}
-
-    .config-row{
-      display:flex; gap:12px; flex-wrap:wrap; align-items:center; width:100%;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(218,165,32,0.25);
-    }
-    .cfg{ min-width: 220px; flex: 1 1 220px; }
-    .cfg small{ display:block; color:#DAA520; opacity:0.9; margin: 0 0 6px 2px; letter-spacing: 0.5px; }
-    .cfg-check{ display:flex; align-items:center; gap:10px; min-width: 220px; flex: 1 1 220px; color:#DAA520; }
-    .cfg-check input{ width:auto; transform: scale(1.2); accent-color:#DAA520; }
-
-    .mini { min-width: 160px; flex: 0 1 160px; }
+    .checkline{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+    .checkline input{transform:scale(1.15);accent-color:var(--accent)}
+    .small{font-size:12px;color:var(--muted)}
+    
+    .language-toggle{position:absolute;top:18px;right:18px;display:flex;gap:8px;background:var(--card);padding:6px;border-radius:12px;border:1px solid var(--line)}
+    .lang-btn{padding:4px 12px;border-radius:6px;cursor:pointer;color:var(--muted);font-size:13px}
+    .lang-btn.active{background:var(--btnBg);color:var(--accent)}
   </style>
 </head>
 <body>
-  <div class="language-switcher">
-    <button class="lang-btn active" data-lang="pt">🇧🇷 PT</button>
-    <button class="lang-btn" data-lang="en">🇺🇸 EN</button>
-  </div>
-
-  <div class="header">
+  <div class="wrap">
+    <div class="language-toggle">
+      <div class="lang-btn active" data-lang="pt">PT</div>
+      <div class="lang-btn" data-lang="en">EN</div>
+    </div>
+    
     <h1>Terra Dourada Brands</h1>
-  </div>
 
-  <div class="subtitle" data-i18n="subtitle">Verificação de similaridade + decisão (Gemini decide)</div>
-
-  <div id="chat"></div>
-
-  <div class="controls">
-    <div class="input-container">
-      <input type="text" id="input" data-i18n-placeholder="inputPlaceholder" autocomplete="off" />
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>1) Carregar marcas.bin (TERRAMIN)</label>
+          <input id="file" type="file" accept=".bin"/>
+        </div>
+        <div>
+          <button id="btnLoad">Carregar base</button>
+        </div>
+        <span id="dbStatus" class="pill">Base: não carregada</span>
+      </div>
+      <div id="loadMsg" class="muted" style="margin-top:10px"></div>
     </div>
 
-    <button id="send">⚡ <span data-i18n="sendButton">Checar</span></button>
-
-    <button id="dbBtn" title="Carregar marcas.bin">
-      🗃️ <span data-i18n="dbButton">Carregar marcas.bin</span>
-    </button>
-    <input type="file" id="dbFile" accept=".bin,.txt" />
-
-    <button id="toggleKeyBtn" title="Mostrar/ocultar chave">
-      🔑 <span data-i18n="keyButton">Chave</span>
-    </button>
-
-    <div class="config-row" id="configRow" style="display:none;">
-      <div class="cfg">
-        <small data-i18n="apiKeyLabel">Gemini API Key (fica só no navegador)</small>
-        <input id="apiKey" type="password" data-i18n-placeholder="apiKeyPlaceholder" autocomplete="off" />
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>2) Marca para checar</label>
+          <input id="brand" type="text"/>
+        </div>
+        <div>
+          <label>Top N (engine)</label>
+          <input id="topn" type="number" min="1" max="25" value="10"/>
+        </div>
+        <div>
+          <button id="btnCheck">Checar</button>
+        </div>
       </div>
 
-      <div class="cfg">
-        <small data-i18n="modelLabel">Modelo</small>
-        <select id="model">
-          <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
-          <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
-        </select>
+      <div id="checkMsg" class="muted" style="margin-top:10px"></div>
+      <pre id="out"></pre>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label>3) Segmento (escopo de mercado)</label>
+          <input id="segment" type="text"/>
+          <div class="small" style="margin-top:6px">Ex.: alimentício, cosméticos, farmacêutico, tecnologia</div>
+        </div>
+
+        <div>
+          <label>4) Revisão semântica (Gemini) — chave fica só no navegador</label>
+          <input id="apiKey" type="password"/>
+          <div class="checkline">
+            <label class="small" style="display:flex;gap:8px;align-items:center;margin:0">
+              <input id="rememberKey" type="checkbox"/>
+              <span class="remember-text">salvar chave nesta aba (sessionStorage)</span>
+            </label>
+
+            <label class="small" style="display:flex;gap:8px;align-items:center;margin:0">
+              <input id="autoReview" type="checkbox" checked/>
+              <span class="auto-text">revisar automaticamente após "Checar"</span>
+            </label>
+          </div>
+        </div>
       </div>
 
-      <div class="cfg mini">
-        <small data-i18n="tempLabel">Temperatura</small>
-        <input id="temperature" type="number" step="0.1" min="0" max="2" value="0.4" />
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label>Modelo</label>
+          <select id="model">
+            <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
+            <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Temperatura</label>
+          <input id="temperature" type="number" step="0.1" min="0" max="2" value="0.1"/>
+        </div>
+
+        <div>
+          <label>Max output tokens</label>
+          <input id="maxTokens" type="number" step="1" min="32" max="8192" value="512"/>
+        </div>
+
+        <div>
+          <label>Idioma da revisão</label>
+          <select id="reviewLang">
+            <option value="pt" selected>Português (Brasil)</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+
+        <div>
+          <button id="btnReview">Revisar (LLM)</button>
+        </div>
       </div>
 
-      <div class="cfg mini">
-        <small data-i18n="maxTokensLabel">Max output tokens</small>
-        <input id="maxTokens" type="number" step="1" min="1" max="8192" value="2048" />
-      </div>
-
-      <div class="cfg mini">
-        <small>Top N (engine)</small>
-        <input id="topN" type="number" step="1" min="1" max="500" value="50" />
-      </div>
-
-      <div class="cfg-check">
-        <input id="rememberKey" type="checkbox" />
-        <span data-i18n="rememberKey">Salvar chave nesta aba (sessionStorage)</span>
-      </div>
+      <div id="llmMsg" class="muted" style="margin-top:10px"></div>
+      <pre id="llmOut"></pre>
     </div>
   </div>
 
-  <script>
-    const chat = document.getElementById("chat");
-    const input = document.getElementById("input");
-    const send = document.getElementById("send");
-    const dbBtn = document.getElementById("dbBtn");
-    const dbFile = document.getElementById("dbFile");
-    const langButtons = document.querySelectorAll('.lang-btn[data-lang]');
-
-    const toggleKeyBtn = document.getElementById("toggleKeyBtn");
-    const configRow = document.getElementById("configRow");
-    const apiKeyInput = document.getElementById("apiKey");
-    const rememberKey = document.getElementById("rememberKey");
-    const modelSel = document.getElementById("model");
-    const tempInput = document.getElementById("temperature");
-    const maxTokensInput = document.getElementById("maxTokens");
-    const topNInput = document.getElementById("topN");
-
-    const LOAD_DB_ENDPOINT = "/load_marcas";
-    const CHECK_ENDPOINT = "/check_brand";
-
+<script>
+  const $ = (id) => document.getElementById(id);
+  
+  // Language management - SIMPLE VERSION
+  let currentLang = 'pt'; // default to Portuguese
+  
+  function setLanguage(lang) {
+    currentLang = lang;
+    
+    // Update active button
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.getAttribute('data-lang') === lang) {
+        btn.classList.add('active');
+      }
+    });
+    
+    // Simple translation for key texts
     const translations = {
       pt: {
-        subtitle: "Verificação de similaridade + decisão (Gemini decide)",
-        inputPlaceholder: "Digite a marca para checar...",
-        sendButton: "Checar",
-        dbButton: "Carregar marcas.bin",
-        keyButton: "Chave",
-        apiKeyLabel: "Gemini API Key (fica só no navegador)",
-        apiKeyPlaceholder: "Cole sua Gemini API Key aqui",
-        modelLabel: "Modelo",
-        tempLabel: "Temperatura",
-        maxTokensLabel: "Max output tokens",
-        rememberKey: "Salvar chave nesta aba (sessionStorage)",
-        welcome: "🌍 Terra Dourada Brands online.\nCarregue marcas.bin e cheque uma marca.",
-        dbLoading: "🗃️ Carregando marcas...",
-        dbSuccess: "✅ Base carregada.",
-        dbError: "❌ Erro ao carregar base: ",
-        checking: "🔎 Calculando similaridade (engine)...",
-        noKeyTitle: "⚠️ Similaridade calculada.",
-        noKeyHint: "Informe a chave Gemini para obter decisão e explicação.",
-        noKeyBest: "Melhor match:",
-        noKeyScore: "Similaridade (combinada):",
-        geminiCalling: "⚡ Gemini decidindo e explicando...",
-        geminiFail: "❌ Falha ao chamar Gemini.\n",
-        badServer: "❌ Resposta inválida do servidor.",
-        engineFail: "❌ Falha no engine.",
+        'btnLoad': 'Carregar base',
+        'btnCheck': 'Checar',
+        'btnReview': 'Revisar (LLM)',
+        'dbStatus': 'Base: não carregada',
+        'rememberText': 'salvar chave nesta aba (sessionStorage)',
+        'autoText': 'revisar automaticamente após "Checar"'
       },
       en: {
-        subtitle: "Similarity check + decision (Gemini decides)",
-        inputPlaceholder: "Type a brand to check...",
-        sendButton: "Check",
-        dbButton: "Load marcas.bin",
-        keyButton: "Key",
-        apiKeyLabel: "Gemini API Key (stays only in the browser)",
-        apiKeyPlaceholder: "Paste your Gemini API Key here",
-        modelLabel: "Model",
-        tempLabel: "Temperature",
-        maxTokensLabel: "Max output tokens",
-        rememberKey: "Save key in this tab (sessionStorage)",
-        welcome: "🌍 Terra Dourada Brands online.\nLoad marcas.bin and check a brand.",
-        dbLoading: "🗃️ Loading database...",
-        dbSuccess: "✅ Database loaded.",
-        dbError: "❌ Error loading database: ",
-        checking: "🔎 Calculating similarity (engine)...",
-        noKeyTitle: "⚠️ Similarity computed.",
-        noKeyHint: "Provide a Gemini key to get decision and explanation.",
-        noKeyBest: "Best match:",
-        noKeyScore: "Similarity (combined):",
-        geminiCalling: "⚡ Gemini deciding and explaining...",
-        geminiFail: "❌ Failed to call Gemini.\n",
-        badServer: "❌ Invalid server response.",
-        engineFail: "❌ Engine failure.",
+        'btnLoad': 'Load database',
+        'btnCheck': 'Check',
+        'btnReview': 'Review (LLM)',
+        'dbStatus': 'Database: not loaded',
+        'rememberText': 'save key in this tab (sessionStorage)',
+        'autoText': 'auto-review after "Check"'
       }
     };
+    
+    // Apply translations to buttons
+    if (translations[lang]['btnLoad']) $('btnLoad').textContent = translations[lang]['btnLoad'];
+    if (translations[lang]['btnCheck']) $('btnCheck').textContent = translations[lang]['btnCheck'];
+    if (translations[lang]['btnReview']) $('btnReview').textContent = translations[lang]['btnReview'];
+    if (translations[lang]['dbStatus']) $('dbStatus').textContent = translations[lang]['dbStatus'];
+    
+    // Apply translations to checkbox labels
+    document.querySelectorAll('.remember-text').forEach(el => {
+      el.textContent = translations[lang]['rememberText'];
+    });
+    document.querySelectorAll('.auto-text').forEach(el => {
+      el.textContent = translations[lang]['autoText'];
+    });
+  }
+  
+  // Language toggle buttons
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lang = btn.getAttribute('data-lang');
+      setLanguage(lang);
+    });
+  });
 
-    let currentLang = 'pt';
-    function tr(key){ return (translations[currentLang] && translations[currentLang][key]) ? translations[currentLang][key] : key; }
+  function pct(x){
+    if (typeof x !== "number" || !isFinite(x)) return "";
+    return x.toFixed(2) + "%";
+  }
 
-    function changeLanguage(lang){
-      currentLang = lang;
-      langButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.lang === lang));
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        const k = el.dataset.i18n;
-        if (translations[lang][k]) el.textContent = translations[lang][k];
-      });
-      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-        const k = el.dataset.i18nPlaceholder;
-        if (translations[lang][k]) el.placeholder = translations[lang][k];
-      });
+  function setText(el, txt, cls){
+    el.className = cls || "";
+    el.textContent = txt;
+  }
+
+  function loadKeyFromSession(){
+    const k = sessionStorage.getItem("td_gemini_key");
+    if (k) {
+      $("apiKey").value = k;
+      $("rememberKey").checked = true;
     }
-    langButtons.forEach(btn => btn.addEventListener('click', () => changeLanguage(btn.dataset.lang)));
+  }
 
-    function addMessage(text, cls){
-      const div = document.createElement("div");
-      div.className = "msg " + cls;
-      div.textContent = text; // ✅ sempre textContent (nada de HTML injetado)
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
-      return div;
+  function saveOrClearKey(){
+    const v = ($("apiKey").value || "").trim();
+    if ($("rememberKey").checked && v) {
+      sessionStorage.setItem("td_gemini_key", v);
+    } else {
+      sessionStorage.removeItem("td_gemini_key");
     }
+  }
 
-    function loadKeyFromSession(){
-      const k = sessionStorage.getItem("td_gemini_key");
-      if (k) {
-        apiKeyInput.value = k;
-        rememberKey.checked = true;
-      }
+  // RESTORED ORIGINAL EVENT HANDLERS
+  $("rememberKey").addEventListener("change", function() {
+    const v = ($("apiKey").value || "").trim();
+    if (this.checked && v) {
+      sessionStorage.setItem("td_gemini_key", v);
+    } else {
+      sessionStorage.removeItem("td_gemini_key");
     }
-
-    function saveOrClearKey(){
-      if (rememberKey.checked && apiKeyInput.value.trim()) {
-        sessionStorage.setItem("td_gemini_key", apiKeyInput.value.trim());
+  });
+  
+  $("apiKey").addEventListener("input", function() {
+    if ($("rememberKey").checked) {
+      const v = ($("apiKey").value || "").trim();
+      if (v) {
+        sessionStorage.setItem("td_gemini_key", v);
       } else {
         sessionStorage.removeItem("td_gemini_key");
       }
     }
-    rememberKey.addEventListener("change", saveOrClearKey);
-    apiKeyInput.addEventListener("input", () => { if (rememberKey.checked) saveOrClearKey(); });
+  });
 
-    // ✅ PROMPT: SEM REFERÊNCIA A PERCENTUAL FIXO - APENAS REGRAS GERAIS
-    function buildPromptBrandsDecision(userBrand, reportJsonText){
-      return (
-        "You are Terra Dourada Brands.\n\n" +
-
-        "Decision policy:\n" +
-        "- Similarity below a certain threshold usually indicates sufficient distinction and may be APPROVED without concern.\n" +
-        "- Similarity in a moderate range is a gray zone and REQUIRES qualitative evaluation.\n" +
-        "- High similarity normally indicates a direct collision and should be REJECTED, unless there is a very strong semantic divergence.\n\n" +
-
-        "Evaluation criteria (in the gray zone):\n" +
-        "- Phonetic similarity (how it sounds when spoken).\n" +
-        "- Visual similarity (how it looks written).\n" +
-        "- Semantic meaning and concept (are the ideas clearly different or opposed?).\n" +
-        "- Distinctiveness of the differing elements.\n" +
-        "- Likelihood of consumer confusion or association.\n\n" +
-
-        "Important:\n" +
-        "- Percentages are indicators, not automatic decisions.\n" +
-        "- A shared generic term must NOT be treated as dominant by itself.\n" +
-        "- Do NOT invent legal rules; reason practically and realistically.\n" +
-        "- Use only the data present in the similarity report.\n" +
-        "- Answer in the same language as the user's input.\n\n" +
-
-        "BRAND REQUESTED:\n" + userBrand + "\n\n" +
-        "SIMILARITY REPORT JSON:\n" + reportJsonText + "\n"
-      );
+  async function loadDB(){
+    const f = $("file").files && $("file").files[0];
+    if (!f){
+      setText($("loadMsg"), currentLang === 'pt' ? "Selecione um arquivo .bin." : "Select a .bin file.", "bad");
+      return;
     }
 
-    async function callGemini(apiKey, model, prompt, temperature, maxTokens) {
-      const url =
-        "https://generativelanguage.googleapis.com/v1beta/models/" +
-        encodeURIComponent(model) +
-        ":generateContent?key=" +
-        encodeURIComponent(apiKey);
+    $("btnLoad").disabled = true;
+    setText($("loadMsg"), currentLang === 'pt' ? "Carregando..." : "Loading...", "muted");
 
-      const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: Number(temperature),
-          maxOutputTokens: Number(maxTokens)
-        }
-      };
+    try{
+      const fd = new FormData();
+      fd.append("marcas", f);
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
+      const res = await fetch("/load_marcas", { method: "POST", body: fd });
+      const js = await res.json().catch(() => null);
 
-      const json = await res.json();
-
-      const text =
-        json &&
-        json.candidates &&
-        json.candidates[0] &&
-        json.candidates[0].content &&
-        json.candidates[0].content.parts
-          ? json.candidates[0].content.parts.map(p => p.text || "").join("")
-          : "";
-
-      return { text, json };
-    }
-
-    function safeNumToPct(n){
-      if (typeof n !== "number" || !isFinite(n)) return null;
-      return n;
-    }
-
-    function buildNoKeySummary(report){
-      const best = report && report.best ? report.best : {};
-      const nome = typeof best.nome === "string" ? best.nome : "-";
-      const comb = safeNumToPct(best.combinada_pct);
-      const combTxt = (comb === null) ? "-" : (comb.toFixed(2) + "%");
-      return (
-        tr("noKeyTitle") + "\n" +
-        tr("noKeyBest") + " " + nome + "\n" +
-        tr("noKeyScore") + " " + combTxt + "\n\n" +
-        tr("noKeyHint")
-      );
-    }
-
-    async function doCheck(brandText){
-      const loading = addMessage(tr("checking"), "bot");
-
-      try{
-        const topN = Math.max(1, Math.min(500, Number(topNInput.value) || 50));
-
-        const res = await fetch(CHECK_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ brand: brandText, top_n: topN })
-        });
-
-        const raw = await res.text();
-        loading.remove();
-
-        let json;
-        try {
-          json = JSON.parse(raw);
-        } catch {
-          console.error("Server returned non-JSON:", raw);
-          addMessage(tr("badServer"), "bot");
-          return;
-        }
-
-        if (!json || json.mode !== "ok") {
-          // ✅ NÃO DUMPA JSON / DEBUG NO CHAT
-          const msg = (json && json.error)
-            ? (tr("engineFail") + "\n" + String(json.error))
-            : tr("engineFail");
-          addMessage(msg, "bot");
-          console.warn("Engine non-ok payload:", json);
-          return;
-        }
-
-        // ✅ reportText fica SÓ INTERNO (vai pro Gemini), não aparece no chat
-        const report = json.report || {};
-        const reportText = JSON.stringify(report, null, 2);
-
-        // ✅ opcional: debug só no console (não suja UI)
-        console.debug("ENGINE_REPORT", report);
-
-        saveOrClearKey();
-        const apiKey = apiKeyInput.value.trim();
-
-        if (!apiKey) {
-          addMessage(buildNoKeySummary(report), "bot");
-          return;
-        }
-
-        const loadingGem = addMessage(tr("geminiCalling"), "bot");
-        const prompt = buildPromptBrandsDecision(brandText, reportText);
-
-        try{
-          const out = await callGemini(apiKey, modelSel.value, prompt, tempInput.value, maxTokensInput.value);
-          loadingGem.remove();
-
-          const gem = (out.text || "").trim();
-          addMessage(gem ? gem : "⚠️ Gemini retornou resposta vazia.", "bot");
-        } catch(e){
-          loadingGem.remove();
-          addMessage(tr("geminiFail") + String(e), "bot");
-          console.error("Gemini error:", e);
-        }
-
-      } catch(err){
-        loading.remove();
-        addMessage(String(err), "bot");
-        console.error(err);
+      if (!res.ok || !js || !js.ok){
+        const err = (js && js.error) ? js.error : ("HTTP " + res.status);
+        setText($("loadMsg"), (currentLang === 'pt' ? "Falhou: " : "Failed: ") + err, "bad");
+        setText($("dbStatus"), currentLang === 'pt' ? "Base: não carregada" : "Database: not loaded", "pill");
+        return;
       }
-    }
 
-    send.onclick = async () => {
-      const text = input.value.trim();
-      if (!text) return;
-      addMessage(text, "user");
-      input.value = "";
-      await doCheck(text);
+      setText($("loadMsg"), 
+        currentLang === 'pt' 
+          ? `OK. Total: ${js.total_marcas} | decode: ${js.decode_mode}` 
+          : `OK. Total: ${js.total_marcas} | decode: ${js.decode_mode}`, 
+        "ok"
+      );
+      setText($("dbStatus"), 
+        currentLang === 'pt' 
+          ? `Base: carregada (${js.total_marcas})` 
+          : `Database: loaded (${js.total_marcas})`, 
+        "pill"
+      );
+    }catch(e){
+      setText($("loadMsg"), (currentLang === 'pt' ? "Falhou: " : "Failed: ") + e.message, "bad");
+      setText($("dbStatus"), currentLang === 'pt' ? "Base: não carregada" : "Database: not loaded", "pill");
+    }finally{
+      $("btnLoad").disabled = false;
+    }
+  }
+
+  // -------------------------------
+  // LLM Prompt (BRASIL - LPI)
+  // -------------------------------
+  function buildPromptWinner_BR(reqBrand, best, segment, lang){
+    const language = (lang === "pt") ? "Portuguese (Brazil)" : "English";
+    const seg = (segment && String(segment).trim()) ? String(segment).trim() : currentLang === 'pt' ? "(não informado)" : "(not informed)";
+
+    const bName = String(best?.nome ?? "");
+    const bBytes = Number(best?.bytes_pct ?? 0).toFixed(2);
+    const bSha = Number(best?.sha256_pct ?? 0).toFixed(2);
+    const bWin = Number(best?.winner_pct ?? Math.max(best?.bytes_pct ?? 0, best?.sha256_pct ?? 0)).toFixed(2);
+
+    return (
+`You are Terra Dourada Brands — Semantic Review for BRAZIL (LPI 9.279/96). Not legal advice.
+
+LANGUAGE: ${language}
+
+CONSTRAINTS:
+- Decide by likelihood of confusion/association (trade origin) in the relevant market.
+- Evaluate as a whole (overall impression), not only one token.
+- Distinctive elements weigh more; generic/common terms weigh less.
+- Consider market proximity using the SEGMENT scope. If segment is missing, lower confidence.
+- Consider phonetics (pronunciation, rhythm, syllables, nicknames/transliteration).
+- Consider visual similarity (shared roots, structure, punctuation, spacing).
+- Consider semantics (same idea/category can raise association).
+- Do NOT claim INPI status, owner, class, fame, or "well-known" unless explicitly provided.
+
+YOU MUST EXPLAIN:
+- If REJECTED: name the 1–2 dominant collision reasons (e.g., phonetic collision + market proximity).
+- If APPROVED: name what makes it distinctive (dominant differences) and why confusion is unlikely.
+- Never rely only on percentages. Use them only as a supporting signal.
+
+OUTPUT (max 140 words, no fluff):
+DECISION: APPROVED | REJECTED | GRAY_ZONE
+RISK: LOW | MEDIUM | HIGH
+CONFIDENCE: 0-100
+
+WHY (3–6 bullets, each bullet must start with one tag):
+[PHONETIC] ...
+[VISUAL] ...
+[SEMANTIC] ...
+[MARKET] ...
+[DISTINCTIVENESS] ...
+
+WHAT WOULD CHANGE THE DECISION (1–3 bullets):
+- ...
+
+INPUT:
+SEGMENT: ${seg}
+REQUESTED: ${reqBrand}
+
+BEST_MATCH:
+NAME: ${bName}
+BYTES_PCT: ${bBytes}
+SHA256_PCT: ${bSha}
+WINNER_PCT: ${bWin}`
+    );
+  }
+
+  async function callGemini(apiKey, model, prompt, temperature, maxTokens){
+    const url =
+      "https://generativelanguage.googleapis.com/v1beta/models/" +
+      encodeURIComponent(model) +
+      ":generateContent?key=" +
+      encodeURIComponent(apiKey);
+
+    const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: Number(temperature),
+        maxOutputTokens: Number(maxTokens)
+      }
     };
 
-    input.addEventListener("keydown", e => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        send.click();
-      }
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
     });
 
-    dbBtn.onclick = () => dbFile.click();
-    dbFile.onchange = async () => {
-      const file = dbFile.files[0];
-      if (!file) return;
+    const json = await res.json().catch(() => null);
+    const text =
+      json &&
+      json.candidates &&
+      json.candidates[0] &&
+      json.candidates[0].content &&
+      json.candidates[0].content.parts
+        ? json.candidates[0].content.parts.map(p => p.text || "").join("")
+        : "";
 
-      addMessage(tr("dbLoading"), "bot");
+    if (!res.ok){
+      const msg = (json && json.error && json.error.message) ? json.error.message : ("HTTP " + res.status);
+      throw new Error(msg);
+    }
 
-      const fd = new FormData();
-      fd.append("marcas", file);
+    return (text || "").trim();
+  }
 
-      try{
-        const res = await fetch(LOAD_DB_ENDPOINT, { method: "POST", body: fd });
-        if (!res.ok) throw new Error(await res.text());
-        addMessage(tr("dbSuccess"), "bot");
-        dbBtn.classList.add("ok");
-        setTimeout(() => dbBtn.classList.remove("ok"), 2500);
-      } catch(err){
-        addMessage(tr("dbError") + String(err), "bot");
-      } finally {
-        dbFile.value = "";
+  // guarda o último report do engine pra botão "Revisar (LLM)"
+  let lastEngineReport = null;
+
+  async function runLLMReview(rep){
+    $("llmOut").textContent = "";
+    lastEngineReport = rep;
+
+    const apiKey = ($("apiKey").value || "").trim();
+    if (!apiKey){
+      setText($("llmMsg"), currentLang === 'pt' 
+        ? "Informe a Gemini API Key para fazer a revisão." 
+        : "Provide Gemini API Key to perform review.", "warn");
+      return;
+    }
+    saveOrClearKey();
+
+    const best = rep && rep.best;
+    if (!best){
+      setText($("llmMsg"), currentLang === 'pt' 
+        ? "Sem best_match no report do engine." 
+        : "No best_match in engine report.", "bad");
+      return;
+    }
+
+    const seg = ($("segment").value || "").trim();
+    const lang = $("reviewLang").value;
+
+    const prompt = buildPromptWinner_BR(rep.query, best, seg, lang);
+
+    $("btnReview").disabled = true;
+    setText($("llmMsg"), currentLang === 'pt' 
+      ? "LLM revisando o vencedor e justificando..." 
+      : "LLM reviewing winner and justifying...", "muted");
+
+    try{
+      const out = await callGemini(
+        apiKey,
+        $("model").value,
+        prompt,
+        $("temperature").value,
+        $("maxTokens").value
+      );
+
+      if (!out){
+        setText($("llmMsg"), currentLang === 'pt' 
+          ? "LLM retornou resposta vazia." 
+          : "LLM returned empty response.", "warn");
+        return;
       }
-    };
 
-    toggleKeyBtn.onclick = () => {
-      const show = (configRow.style.display === "none");
-      configRow.style.display = show ? "flex" : "none";
-      if (show) apiKeyInput.focus();
-    };
+      $("llmOut").textContent = out;
+      setText($("llmMsg"), currentLang === 'pt' 
+        ? "OK. Revisão concluída." 
+        : "OK. Review completed.", "ok");
+    }catch(e){
+      setText($("llmMsg"), (currentLang === 'pt' ? "Falhou: " : "Failed: ") + e.message, "bad");
+    }finally{
+      $("btnReview").disabled = false;
+    }
+  }
 
-    addMessage(translations[currentLang].welcome, "bot");
-    loadKeyFromSession();
-    input.focus();
-  </script>
+  async function checkBrand(){
+    const brand = ($("brand").value || "").trim();
+    const topn = parseInt($("topn").value || "10", 10);
+
+    if (!brand){
+      setText($("checkMsg"), currentLang === 'pt' ? "Digite uma marca." : "Enter a brand.", "bad");
+      return;
+    }
+
+    $("btnCheck").disabled = true;
+    setText($("checkMsg"), currentLang === 'pt' ? "Consultando..." : "Checking...", "muted");
+    $("out").textContent = "";
+
+    try{
+      const res = await fetch("/check_brand", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brand: brand, top_n: topn })
+      });
+
+      const js = await res.json().catch(() => null);
+      if (!res.ok || !js || js.mode !== "ok"){
+        const err = (js && js.error) ? js.error : ("HTTP " + res.status);
+        setText($("checkMsg"), (currentLang === 'pt' ? "Falhou: " : "Failed: ") + err, "bad");
+        return;
+      }
+
+      const rep = js.report;
+      lastEngineReport = rep;
+
+      const best = rep && rep.best;
+      const top = rep && rep.top ? rep.top : [];
+
+      let text = "";
+      text += "Query: " + rep.query + "\n";
+      text += "Total: " + rep.total_marcas + " | decode: " + rep.decode_mode + "\n\n";
+
+      if (best){
+        text += "BEST MATCH\n";
+        text += "Name: " + best.nome + "\n";
+        text += "Bytes: " + pct(best.bytes_pct) + "\n";
+        text += "SHA256: " + pct(best.sha256_pct) + "\n";
+        text += "Winner: " + pct(best.winner_pct) + "\n";
+        text += "Hash(name): " + (best.sha256_hex || "") + "\n\n";
+      }
+
+      if (top.length){
+        text += "TOP " + top.length + "\n";
+        top.forEach((c, i) => {
+          text += (i+1) + ") " + c.nome +
+                  " | W " + pct(c.winner_pct) +
+                  " | B " + pct(c.bytes_pct) +
+                  " | S " + pct(c.sha256_pct) + "\n";
+        });
+      }
+
+      $("out").textContent = text;
+      setText($("checkMsg"), rep.message || (currentLang === 'pt' ? "OK" : "OK"), "ok");
+
+      // auto-review
+      if ($("autoReview").checked){
+        const k = ($("apiKey").value || "").trim();
+        if (k){
+          await runLLMReview(rep);
+        } else {
+          setText($("llmMsg"), 
+            currentLang === 'pt' 
+              ? "Similarity ok. Falta a Gemini API Key para a revisão semântica." 
+              : "Similarity ok. Missing Gemini API Key for semantic review.", 
+            "warn"
+          );
+          $("llmOut").textContent = "";
+        }
+      }
+
+    }catch(e){
+      setText($("checkMsg"), (currentLang === 'pt' ? "Falhou: " : "Failed: ") + e.message, "bad");
+    }finally{
+      $("btnCheck").disabled = false;
+    }
+  }
+
+  $("btnLoad").addEventListener("click", loadDB);
+  $("btnCheck").addEventListener("click", checkBrand);
+
+  $("btnReview").addEventListener("click", async () => {
+    if (!lastEngineReport){
+      setText($("llmMsg"), 
+        currentLang === 'pt' 
+          ? "Faça um 'Checar' primeiro para ter um vencedor." 
+          : "Perform a 'Check' first to have a winner.", 
+        "warn"
+      );
+      return;
+    }
+    await runLLMReview(lastEngineReport);
+  });
+
+  loadKeyFromSession();
+  // Initialize with Portuguese as default
+  setLanguage('pt');
+</script>
 </body>
 </html>

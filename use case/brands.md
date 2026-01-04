@@ -1,8 +1,7 @@
 # Terra Dourada Brands
 
 **Live demo:** https://terra-dourada-gpt-green-butterfly-3484.fly.dev/
----
-**Live demo:**https://terra-dourada-brands.fly.dev/
+
 ## Overview
 
 **Terra Dourada Brands** is a deterministic, segment-scoped engine for **technical pre-analysis of trademark name similarity**.

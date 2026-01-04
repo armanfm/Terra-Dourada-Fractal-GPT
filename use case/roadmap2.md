@@ -142,10 +142,3 @@ Deliverable: sovereign memory that can be verified.
 Deliverable: real usability for real users.
 
 ---
-
-## Next 5 fast, high-impact steps
-1. **Versioned header + checksum in `mind.bin`**
-2. **CLI `mind_dump --txt` + `mind_validate`**
-3. **Deterministic router for multiple `mind_*.bin` (modular RAG)**
-4. **Top-K recall with evidence (why was this retrieved?)**
-5. **Simple prefix/token indexing (major performance gain)**

@@ -187,8 +187,14 @@ Knowledge is constructed through **canonical declarations** and controlled seman
 🌐 **Public demo**:  
 👉 https://terra-dourada-fractal-gpt.fly.dev/
 
-License: MIT  
-Author: Armando Freire
+## License
+
+Copyright © 2026 Armando Freire
+
+All rights reserved.
+
+This repository is public for evaluation, demonstration, and discussion purposes.
+Any commercial use, redistribution, or modification requires explicit authorization.
 
 
 

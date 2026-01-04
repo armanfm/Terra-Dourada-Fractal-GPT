@@ -1,7 +1,7 @@
 # Terra Dourada Brands
 
 **Live demo:** https://terra-dourada-gpt-green-butterfly-3484.fly.dev/
-
+**Live demo:**https://terra-dourada-brands.fly.dev/
 ## Overview
 
 **Terra Dourada Brands** is a deterministic, segment-scoped engine for **technical pre-analysis of trademark name similarity**.
@@ -327,4 +327,6 @@ It is a **technical pre-analysis and decision-support layer**.
 ## Key Insight
 
 Official systems primarily **list data** (often via substring matching).  
-Terra Dourada Brands **organizes relevance** within a scoped segment, using deterministic metrics and explicit huma
+Terra Dourada Brands **organizes relevance** within a scoped segment, using deterministic metrics and explicit humam
+
+https://terra-dourada-brands.fly.dev/

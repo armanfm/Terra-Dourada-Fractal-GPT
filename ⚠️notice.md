@@ -31,3 +31,16 @@ Knowledge is constructed through **canonical declarations** and controlled seman
 License: MIT  
 Author: Armando Freire
 
+
+## 🚀 Terra Dourada Brands — Live Demo
+
+**Terra Dourada Brands** is a deterministic engine for **technical pre-analysis of trademark similarity**.
+
+It combines multiple formal metrics — byte similarity, SHA-256, Base64, Levenshtein distance, trigram analysis, and polynomial kernels — to produce a **reproducible similarity signal** before legal or human review.
+
+This system **does not replace official trademark authorities**.  
+Its purpose is to reduce noise and manual effort in early-stage brand evaluation.
+
+🔗 Live demo: https://terra-dourada-brands.fly.dev/
+
+

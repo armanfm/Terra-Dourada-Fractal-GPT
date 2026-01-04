@@ -30,6 +30,7 @@ In practice, trademark evaluation becomes slow, noisy, and error-prone.
 There is no practical “technical pre-analysis layer” before official checks.
 
 ---
+<img width="897" height="904" alt="Sem título" src="https://github.com/user-attachments/assets/55aa7e06-3af0-444e-9500-ab80901c3501" />
 
 ## What Terra Dourada Brands Solves
 

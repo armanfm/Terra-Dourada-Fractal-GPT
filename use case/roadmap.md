@@ -114,9 +114,4 @@ Deliverable: continuous improvement while preserving determinism.
 
 ---
 
-## Suggested next 3 concrete tasks (fast wins)
-1. **Add raw vs normalized** names (accent folding + casing) and keep original display
-2. **Top-K matches** (return top 5) + TXT export
-3. **Binary metadata header** (segment, timestamp, count, checksum)
 
-These three make the project immediately stronger for real-world use and hackathon judging.

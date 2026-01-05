@@ -189,12 +189,14 @@ Knowledge is constructed through **canonical declarations** and controlled seman
 
 ## License
 
-Copyright © 2026 Armando Freire
+Copyright (c) 2025 Armando Freire (Terra Dourada)
 
 All rights reserved.
 
-This repository is public for evaluation, demonstration, and discussion purposes.
-Any commercial use, redistribution, or modification requires explicit authorization.
+This software and documentation are proprietary.
+No permission is granted to use, copy, modify, distribute,
+or sell this material without explicit written consent.
+
 
 
 
